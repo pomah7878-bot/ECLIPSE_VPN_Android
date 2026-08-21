@@ -99,7 +99,7 @@ jobs:
         echo "sdk.dir=${ANDROID_HOME}" > local.properties
         chmod 755 gradlew
         ./gradlew licenseFdroidReleaseReport
-        ./gradlew assembleRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
+        ./gradlew assemblePlaystoreRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
     
     - name: Upload arm64-v8a APK
       uses: actions/upload-artifact@v7
@@ -143,7 +143,11 @@ jobs:
       - name: Collect APKs
         run: |
           mkdir -p release-files
-          find release -type f -name '*.apk' -exec cp {} release-files/ \;
+          # Публикуем только основной вариант. F-Droid-сборка имеет
+          # applicationIdSuffix .fdroid — это ДРУГОЕ приложение с точки
+          # зрения Android, и если клиент поставит её, обычное обновление
+          # к нему не применится. Клиенту нужен один понятный файл.
+          find release -type f -name '*.apk' ! -name '*fdroid*' -exec cp {} release-files/ \;
           ls -la release-files/
 
       - name: Upload APKs to release
