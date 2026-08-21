@@ -147,6 +147,7 @@ class MainActivity : HelperBaseComponentActivity() {
             MainDestination.CheckUpdate -> Intent(this, CheckUpdateActivity::class.java)
             MainDestination.BackupRestore -> Intent(this, BackupActivity::class.java)
             MainDestination.About -> Intent(this, AboutActivity::class.java)
+            MainDestination.Purchase -> Intent(this, PurchaseActivity::class.java)
             MainDestination.Promotion -> {
                 Utils.openUri(
                     this,

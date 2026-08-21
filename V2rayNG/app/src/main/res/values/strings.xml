@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">ECLIPSE VPN</string>
+    <string name="title_purchase">Купить подписку</string>
+    <string name="purchase_login_hint">Введите код доступа из бота или полученный после покупки, чтобы войти в личный кабинет.</string>
+    <string name="purchase_code_label">Код доступа</string>
+    <string name="purchase_login_button">Войти</string>
+    <string name="purchase_logged_in">Вы вошли в личный кабинет.</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>
