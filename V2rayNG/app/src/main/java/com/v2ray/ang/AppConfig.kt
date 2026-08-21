@@ -131,7 +131,7 @@ object AppConfig {
     const val APP_API_URL = "https://api.github.com/repos/pomah7878-bot/ECLIPSE_VPN_Android/releases"
     const val APP_ISSUES_URL = "$APP_URL/issues"
     const val APP_WIKI_MODE = "$APP_URL/wiki/Mode"
-    const val APP_PRIVACY_POLICY = "$GITHUB_RAW_URL/pomah7878-bot/ECLIPSE_VPN_Android/main/PRIVACY.md"
+    const val APP_PRIVACY_POLICY = "$GITHUB_RAW_URL/pomah7878-bot/ECLIPSE_VPN_Android/master/PRIVACY.md"
     const val APP_PROMOTION_URL = "aHR0cHM6Ly9lY2xpcHNlLnVubGltaXRlZC5ib3QubnUvc2hvcA=="
     const val TG_CHANNEL_URL = "https://t.me/eclipse_unlimited_news"
     const val DELAY_TEST_URL = "https://www.gstatic.com/generate_204"
