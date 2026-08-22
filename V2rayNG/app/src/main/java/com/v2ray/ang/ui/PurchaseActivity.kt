@@ -89,7 +89,7 @@ private sealed class PurchaseUiState {
     data class PaymentFailed(val message: String) : PurchaseUiState()
 
     object Importing : PurchaseUiState()
-    object ImportSuccess : PurchaseUiState()
+    data class ImportSuccess(val claimCode: String?) : PurchaseUiState()
     data class ImportFailed(val message: String) : PurchaseUiState()
 }
 
@@ -206,7 +206,7 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                                         val (count, countSub) = AngConfigManager.importBatchConfig(subUrl, "", false)
                                         withContext(Dispatchers.Main) {
                                             state = if (count + countSub > 0) {
-                                                PurchaseUiState.ImportSuccess
+                                                PurchaseUiState.ImportSuccess(resp.claimCode)
                                             } else {
                                                 PurchaseUiState.ImportFailed("Не удалось добавить ключ автоматически")
                                             }
@@ -625,6 +625,28 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                         text = stringResource(R.string.purchase_success),
                         style = MaterialTheme.typography.titleMedium
                     )
+                    if (!s.claimCode.isNullOrBlank()) {
+                        Text(
+                            text = stringResource(R.string.purchase_telegram_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    val url = "https://t.me/vless_keysvpn_bot?start=claim_${s.claimCode}"
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                } catch (e: Exception) {
+                                    LogUtil.e("PurchaseActivity", "open telegram failed", e)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        ) {
+                            Text(stringResource(R.string.purchase_open_telegram_button))
+                        }
+                    }
                     Button(
                         onClick = {
                             context.startActivity(Intent(context, MainActivity::class.java))
