@@ -69,6 +69,14 @@ data class PayCheckResponse(
     @SerializedName("message") val message: String? = null,
 )
 
+data class OAuthProvidersResponse(
+    @SerializedName("providers") val providers: List<String> = emptyList(),
+)
+
+data class OAuthExchangeResponse(
+    @SerializedName("ok") val ok: Boolean = false,
+)
+
 /**
  * Клиент для взаимодействия с публичным API магазина ECLIPSE Unlimited
  * (/api/public/...) — вход по коду доступа, покупка тарифов, оплата.
@@ -95,6 +103,12 @@ object ShopApiClient {
     /** Сбрасывает сохранённую сессию (выход из личного кабинета). */
     fun logout() {
         cookieJar.clear()
+    }
+
+    /** URL для запуска OAuth-входа в Custom Tabs — ?client=app просит
+     * сервер в конце вернуть код обмена через deep-link вместо cookie. */
+    fun oauthStartUrl(provider: String): String {
+        return "$BASE_URL/auth/$provider/start?client=app"
     }
 
     /**
@@ -194,6 +208,57 @@ object ShopApiClient {
             }
         } catch (e: Exception) {
             LogUtil.e("ShopApiClient", "checkPayment failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /** Список реально настроенных на сервере OAuth-провайдеров ("google", "yandex", "vk"). */
+    suspend fun getOAuthProviders(): Result<OAuthProvidersResponse> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$BASE_URL/api/public/oauth/providers")
+                .get()
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (text.isBlank()) {
+                    return@withContext Result.failure(Exception("Пустой ответ сервера"))
+                }
+                Result.success(gson.fromJson(text, OAuthProvidersResponse::class.java))
+            }
+        } catch (e: Exception) {
+            LogUtil.e("ShopApiClient", "getOAuthProviders failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Обменивает одноразовый код (полученный через deep-link после входа
+     * через системный браузер) на настоящую cookie-сессию для дальнейших
+     * запросов из приложения.
+     */
+    suspend fun oauthExchange(code: String): Result<OAuthExchangeResponse> = withContext(Dispatchers.IO) {
+        try {
+            val body = gson.toJson(mapOf("code" to code)).toRequestBody(JSON_MEDIA_TYPE)
+            val request = Request.Builder()
+                .url("$BASE_URL/api/public/account/oauth-exchange")
+                .post(body)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (text.isBlank()) {
+                    return@withContext Result.failure(Exception("Пустой ответ сервера"))
+                }
+                val parsed = gson.fromJson(text, OAuthExchangeResponse::class.java)
+                if (!parsed.ok) {
+                    return@withContext Result.failure(Exception("Код недействителен или истёк"))
+                }
+                Result.success(parsed)
+            }
+        } catch (e: Exception) {
+            LogUtil.e("ShopApiClient", "oauthExchange failed", e)
             Result.failure(e)
         }
     }

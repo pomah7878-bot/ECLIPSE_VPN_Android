@@ -16,6 +16,10 @@
     <string name="purchase_importing">Добавляем ключ…</string>
     <string name="purchase_success">Готово! Ключ добавлен и готов к использованию.</string>
     <string name="purchase_go_to_main">На главный экран</string>
+    <string name="purchase_or_divider">или</string>
+    <string name="purchase_oauth_google">Войти через Google</string>
+    <string name="purchase_oauth_yandex">Войти через Яндекс</string>
+    <string name="purchase_oauth_vk">Войти через VK</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>

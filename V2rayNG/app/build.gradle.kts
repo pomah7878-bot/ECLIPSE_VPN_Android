@@ -200,6 +200,9 @@ dependencies {
     // Reorderable list
     implementation(libs.reorderable)
 
+    // Custom Tabs — for native OAuth login (Google/Yandex/VK) inside the app
+    implementation(libs.androidx.browser)
+
     // Testing Libraries
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -212,6 +212,16 @@
         <activity
             android:name=".ui.PurchaseActivity"
             android:exported="false" />
+        <activity
+            android:name=".ui.OAuthCallbackActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="eclipsevpn" android:host="oauth-callback" />
+            </intent-filter>
+        </activity>
 
         <service
             android:name=".service.CoreVpnService"

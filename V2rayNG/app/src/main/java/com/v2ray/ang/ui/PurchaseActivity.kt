@@ -20,8 +20,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,7 +64,8 @@ class PurchaseActivity : BaseComponentActivity() {
 
     @Composable
     override fun ScreenContent() {
-        PurchaseScreen(onBackClick = { finish() })
+        val cameFromOAuth = intent?.getBooleanExtra(OAuthCallbackActivity.EXTRA_OAUTH_RETURN, false) == true
+        PurchaseScreen(onBackClick = { finish() }, startLoggedIn = cameFromOAuth)
     }
 }
 
@@ -87,11 +90,25 @@ private sealed class PurchaseUiState {
 }
 
 @Composable
-fun PurchaseScreen(onBackClick: () -> Unit) {
+fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
     var code by remember { mutableStateOf("") }
-    var state by remember { mutableStateOf<PurchaseUiState>(PurchaseUiState.LoginIdle) }
+    var state by remember {
+        mutableStateOf<PurchaseUiState>(
+            if (startLoggedIn) PurchaseUiState.LoadingTariffs else PurchaseUiState.LoginIdle
+        )
+    }
+    var oauthProviders by remember { mutableStateOf<List<String>>(emptyList()) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    fun openOAuthTab(provider: String) {
+        try {
+            val url = ShopApiClient.oauthStartUrl(provider)
+            CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+        } catch (e: Exception) {
+            LogUtil.e("PurchaseActivity", "open oauth tab failed", e)
+        }
+    }
 
     // Останавливаем фоновый поллинг платежа, если пользователь покидает экран,
     // чтобы не тратить сеть и не оставлять "висящую" корутину после ухода.
@@ -183,6 +200,21 @@ fun PurchaseScreen(onBackClick: () -> Unit) {
         }
     }
 
+    // Список настроенных OAuth-провайдеров — загружаем один раз при
+    // открытии экрана, независимо от того, как на него попали.
+    LaunchedEffect(Unit) {
+        val result = ShopApiClient.getOAuthProviders()
+        result.onSuccess { resp -> oauthProviders = resp.providers }
+    }
+
+    // Возврат из OAuthCallbackActivity после успешного входа через
+    // системный браузер — сразу переходим к тарифам, минуя экран кода.
+    LaunchedEffect(Unit) {
+        if (startLoggedIn) {
+            loadTariffs()
+        }
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
@@ -256,6 +288,32 @@ fun PurchaseScreen(onBackClick: () -> Unit) {
                                 )
                             }
                             Text(stringResource(R.string.purchase_login_button))
+                        }
+
+                        if (oauthProviders.isNotEmpty()) {
+                            Text(
+                                text = stringResource(R.string.purchase_or_divider),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                            )
+                            oauthProviders.forEach { provider ->
+                                val label = when (provider) {
+                                    "google" -> stringResource(R.string.purchase_oauth_google)
+                                    "yandex" -> stringResource(R.string.purchase_oauth_yandex)
+                                    "vk" -> stringResource(R.string.purchase_oauth_vk)
+                                    else -> provider
+                                }
+                                OutlinedButton(
+                                    onClick = { openOAuthTab(provider) },
+                                    enabled = s !is PurchaseUiState.LoginLoading,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+                                    Text(label)
+                                }
+                            }
                         }
                     }
                 }
