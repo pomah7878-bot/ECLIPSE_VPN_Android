@@ -6,6 +6,16 @@
     <string name="purchase_code_label">Код доступа</string>
     <string name="purchase_login_button">Войти</string>
     <string name="purchase_logged_in">Вы вошли в личный кабинет.</string>
+    <string name="purchase_retry_button">Повторить</string>
+    <string name="purchase_select_tariff">Выберите тариф</string>
+    <string name="purchase_days_suffix">дн.</string>
+    <string name="purchase_buy_button">Купить</string>
+    <string name="purchase_waiting_payment">Ожидаем оплату</string>
+    <string name="purchase_open_payment_button">Оплатить</string>
+    <string name="purchase_polling_hint">Проверяем статус платежа…</string>
+    <string name="purchase_importing">Добавляем ключ…</string>
+    <string name="purchase_success">Готово! Ключ добавлен и готов к использованию.</string>
+    <string name="purchase_go_to_main">На главный экран</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>
