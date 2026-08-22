@@ -28,6 +28,9 @@
     <string name="purchase_buy_more_button">Купить подписку</string>
     <string name="purchase_telegram_hint">Откройте бота, чтобы получать уведомления и управлять подпиской из Telegram.</string>
     <string name="purchase_open_telegram_button">Открыть в Telegram</string>
+    <string name="purchase_trial_title">🎁 Пробный период бесплатно</string>
+    <string name="purchase_trial_hint">Попробуйте сервис перед покупкой — без оплаты.</string>
+    <string name="purchase_trial_button">Попробовать бесплатно</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>

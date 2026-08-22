@@ -44,6 +44,7 @@ import com.v2ray.ang.util.AccountKeyDto
 import com.v2ray.ang.util.PayCheckResponse
 import com.v2ray.ang.util.ShopApiClient
 import com.v2ray.ang.util.TariffDto
+import com.v2ray.ang.util.TrialCreateResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,7 +83,7 @@ private sealed class PurchaseUiState {
 
     object LoadingTariffs : PurchaseUiState()
     data class TariffsError(val message: String) : PurchaseUiState()
-    data class TariffsList(val tariffs: List<TariffDto>) : PurchaseUiState()
+    data class TariffsList(val tariffs: List<TariffDto>, val trialAvailable: Boolean) : PurchaseUiState()
 
     object CreatingPayment : PurchaseUiState()
     data class WaitingPayment(val orderId: String, val qrUrl: String?, val amountRub: Double?) : PurchaseUiState()
@@ -241,8 +242,47 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
         scope.launch {
             val result = ShopApiClient.getTariffs()
             state = result.fold(
-                onSuccess = { resp -> PurchaseUiState.TariffsList(resp.tariffs) },
+                onSuccess = { resp -> PurchaseUiState.TariffsList(resp.tariffs, resp.trialAvailable) },
                 onFailure = { PurchaseUiState.TariffsError("Не удалось загрузить тарифы") }
+            )
+        }
+    }
+
+    fun startTrial() {
+        state = PurchaseUiState.CreatingPayment
+        scope.launch {
+            val result = ShopApiClient.createTrial()
+            result.fold(
+                onSuccess = { resp: TrialCreateResponse ->
+                    val subUrl = resp.subUrl
+                    if (subUrl.isNullOrBlank()) {
+                        state = PurchaseUiState.PaymentFailed("Не удалось активировать пробный период")
+                    } else {
+                        state = PurchaseUiState.Importing
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val (count, countSub) = AngConfigManager.importBatchConfig(subUrl, "", false)
+                                    withContext(Dispatchers.Main) {
+                                        state = if (count + countSub > 0) {
+                                            PurchaseUiState.ImportSuccess(resp.claimCode)
+                                        } else {
+                                            PurchaseUiState.ImportFailed("Не удалось добавить ключ автоматически")
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    LogUtil.e("PurchaseActivity", "trial import failed", e)
+                                    withContext(Dispatchers.Main) {
+                                        state = PurchaseUiState.ImportFailed("Ошибка при добавлении ключа")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                onFailure = { e ->
+                    state = PurchaseUiState.PaymentFailed(e.message ?: "Не удалось активировать пробный период")
+                }
             )
         }
     }
@@ -517,6 +557,32 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                         text = stringResource(R.string.purchase_select_tariff),
                         style = MaterialTheme.typography.titleMedium
                     )
+                    if (s.trialAvailable) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = stringResource(R.string.purchase_trial_title),
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                                Text(
+                                    text = stringResource(R.string.purchase_trial_hint),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Button(
+                                    onClick = { startTrial() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+                                    Text(stringResource(R.string.purchase_trial_button))
+                                }
+                            }
+                        }
+                    }
                     LazyColumn(modifier = Modifier.padding(top = 12.dp)) {
                         items(s.tariffs) { tariff ->
                             Card(

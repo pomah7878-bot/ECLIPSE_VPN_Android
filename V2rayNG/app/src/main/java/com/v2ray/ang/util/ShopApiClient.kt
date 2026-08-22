@@ -102,6 +102,14 @@ data class LinkCodeResponse(
     @SerializedName("message") val message: String? = null,
 )
 
+data class TrialCreateResponse(
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("claim_code") val claimCode: String? = null,
+    @SerializedName("sub_url") val subUrl: String? = null,
+    @SerializedName("error") val error: String? = null,
+    @SerializedName("message") val message: String? = null,
+)
+
 /**
  * Клиент для взаимодействия с публичным API магазина ECLIPSE Unlimited
  * (/api/public/...) — вход по коду доступа, покупка тарифов, оплата.
@@ -122,6 +130,12 @@ object ShopApiClient {
             .cookieJar(cookieJar)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("X-Eclipse-App", "1")
+                    .build()
+                chain.proceed(request)
+            }
             .build()
     }
 
@@ -331,6 +345,38 @@ object ShopApiClient {
             }
         } catch (e: Exception) {
             LogUtil.e("ShopApiClient", "linkBotCode failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Активирует бесплатный пробный период для текущей сессии. Запрос из
+     * приложения помечен заголовком X-Eclipse-App (добавляется интерцептором
+     * автоматически) — сервер пропускает проверку Cloudflare Turnstile для
+     * этого канала (у неё нет нативного Android-виджета), полагаясь на
+     * rate-limit по IP и обязательную настоящую сессию как основную защиту.
+     */
+    suspend fun createTrial(): Result<TrialCreateResponse> = withContext(Dispatchers.IO) {
+        try {
+            val body = "{}".toRequestBody(JSON_MEDIA_TYPE)
+            val request = Request.Builder()
+                .url("$BASE_URL/api/public/trial/create")
+                .post(body)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (text.isBlank()) {
+                    return@withContext Result.failure(Exception("Пустой ответ сервера"))
+                }
+                val parsed = gson.fromJson(text, TrialCreateResponse::class.java)
+                if (parsed.error != null) {
+                    return@withContext Result.failure(Exception(parsed.message ?: parsed.error))
+                }
+                Result.success(parsed)
+            }
+        } catch (e: Exception) {
+            LogUtil.e("ShopApiClient", "createTrial failed", e)
             Result.failure(e)
         }
     }
