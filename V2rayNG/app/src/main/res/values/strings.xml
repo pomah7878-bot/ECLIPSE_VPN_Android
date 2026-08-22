@@ -20,6 +20,12 @@
     <string name="purchase_oauth_google">Войти через Google</string>
     <string name="purchase_oauth_yandex">Войти через Яндекс</string>
     <string name="purchase_oauth_vk">Войти через VK</string>
+    <string name="purchase_your_keys">Ваши ключи</string>
+    <string name="purchase_import_key_button">Добавить в приложение</string>
+    <string name="purchase_key_imported">✓ Добавлено</string>
+    <string name="purchase_link_account_hint">Уже покупали подписку через бота? Введите код из бота, чтобы увидеть свои ключи.</string>
+    <string name="purchase_link_account_button">Привязать аккаунт</string>
+    <string name="purchase_buy_more_button">Купить подписку</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>

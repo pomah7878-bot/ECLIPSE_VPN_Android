@@ -77,6 +77,31 @@ data class OAuthExchangeResponse(
     @SerializedName("ok") val ok: Boolean = false,
 )
 
+data class AccountKeyDto(
+    @SerializedName("key_id") val keyId: Int = 0,
+    @SerializedName("display_name") val displayName: String = "",
+    @SerializedName("expires_at") val expiresAt: String? = null,
+    @SerializedName("traffic_used") val trafficUsed: Long = 0,
+    @SerializedName("traffic_limit") val trafficLimit: Long = 0,
+    @SerializedName("is_active") val isActive: Boolean = false,
+    @SerializedName("server_name") val serverName: String? = null,
+    @SerializedName("sub_url") val subUrl: String? = null,
+)
+
+data class AccountSessionResponse(
+    @SerializedName("ok") val ok: Boolean = false,
+    @SerializedName("logged_in") val loggedIn: Boolean = false,
+    @SerializedName("account_type") val accountType: String? = null,
+    @SerializedName("can_link_oauth") val canLinkOauth: Boolean = false,
+    @SerializedName("keys") val keys: List<AccountKeyDto> = emptyList(),
+    @SerializedName("balance_human") val balanceHuman: String? = null,
+)
+
+data class LinkCodeResponse(
+    @SerializedName("ok") val ok: Boolean = false,
+    @SerializedName("message") val message: String? = null,
+)
+
 /**
  * Клиент для взаимодействия с публичным API магазина ECLIPSE Unlimited
  * (/api/public/...) — вход по коду доступа, покупка тарифов, оплата.
@@ -259,6 +284,53 @@ object ShopApiClient {
             }
         } catch (e: Exception) {
             LogUtil.e("ShopApiClient", "oauthExchange failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /** Данные личного кабинета текущей сессии — существующие ключи, если есть. */
+    suspend fun getAccountSession(): Result<AccountSessionResponse> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$BASE_URL/api/public/account/session")
+                .get()
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (text.isBlank()) {
+                    return@withContext Result.failure(Exception("Пустой ответ сервера"))
+                }
+                Result.success(gson.fromJson(text, AccountSessionResponse::class.java))
+            }
+        } catch (e: Exception) {
+            LogUtil.e("ShopApiClient", "getAccountSession failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Привязывает текущий (обычно OAuth) аккаунт к существующему клиенту
+     * бота по коду из бота — чтобы старый клиент бота, впервые вошедший
+     * через Google/Яндекс/VK, увидел свои реальные ключи.
+     */
+    suspend fun linkBotCode(code: String): Result<LinkCodeResponse> = withContext(Dispatchers.IO) {
+        try {
+            val body = gson.toJson(mapOf("code" to code)).toRequestBody(JSON_MEDIA_TYPE)
+            val request = Request.Builder()
+                .url("$BASE_URL/api/public/account/link-code")
+                .post(body)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (text.isBlank()) {
+                    return@withContext Result.failure(Exception("Пустой ответ сервера"))
+                }
+                Result.success(gson.fromJson(text, LinkCodeResponse::class.java))
+            }
+        } catch (e: Exception) {
+            LogUtil.e("ShopApiClient", "linkBotCode failed", e)
             Result.failure(e)
         }
     }

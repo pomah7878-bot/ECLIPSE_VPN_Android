@@ -40,6 +40,7 @@ import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.NavigationBarsSpacer
 import com.v2ray.ang.ui.main.MainActivity
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.AccountKeyDto
 import com.v2ray.ang.util.PayCheckResponse
 import com.v2ray.ang.util.ShopApiClient
 import com.v2ray.ang.util.TariffDto
@@ -76,6 +77,9 @@ private sealed class PurchaseUiState {
     object LoginLoading : PurchaseUiState()
     data class LoginError(val message: String) : PurchaseUiState()
 
+    object LoadingAccount : PurchaseUiState()
+    data class AccountOverview(val keys: List<AccountKeyDto>, val canLinkOauth: Boolean) : PurchaseUiState()
+
     object LoadingTariffs : PurchaseUiState()
     data class TariffsError(val message: String) : PurchaseUiState()
     data class TariffsList(val tariffs: List<TariffDto>) : PurchaseUiState()
@@ -94,10 +98,15 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
     var code by remember { mutableStateOf("") }
     var state by remember {
         mutableStateOf<PurchaseUiState>(
-            if (startLoggedIn) PurchaseUiState.LoadingTariffs else PurchaseUiState.LoginIdle
+            if (startLoggedIn) PurchaseUiState.LoadingAccount else PurchaseUiState.LoginIdle
         )
     }
     var oauthProviders by remember { mutableStateOf<List<String>>(emptyList()) }
+    var importingKeyId by remember { mutableStateOf<Int?>(null) }
+    var importedKeyIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var linkCode by remember { mutableStateOf("") }
+    var linkCodeLoading by remember { mutableStateOf(false) }
+    var linkCodeError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -107,6 +116,65 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
             CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
         } catch (e: Exception) {
             LogUtil.e("PurchaseActivity", "open oauth tab failed", e)
+        }
+    }
+
+    fun loadAccountOverview() {
+        state = PurchaseUiState.LoadingAccount
+        scope.launch {
+            val result = ShopApiClient.getAccountSession()
+            state = result.fold(
+                onSuccess = { resp ->
+                    if (resp.loggedIn) {
+                        PurchaseUiState.AccountOverview(resp.keys, resp.canLinkOauth)
+                    } else {
+                        PurchaseUiState.LoginError("Сессия истекла, попробуйте войти снова")
+                    }
+                },
+                onFailure = { PurchaseUiState.LoginError("Не удалось загрузить личный кабинет") }
+            )
+        }
+    }
+
+    fun importExistingKey(key: AccountKeyDto) {
+        val subUrl = key.subUrl
+        if (subUrl.isNullOrBlank()) return
+        importingKeyId = key.keyId
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val (count, countSub) = AngConfigManager.importBatchConfig(subUrl, "", false)
+                    withContext(Dispatchers.Main) {
+                        importingKeyId = null
+                        if (count + countSub > 0) {
+                            importedKeyIds = importedKeyIds + key.keyId
+                        }
+                    }
+                } catch (e: Exception) {
+                    LogUtil.e("PurchaseActivity", "import existing key failed", e)
+                    withContext(Dispatchers.Main) { importingKeyId = null }
+                }
+            }
+        }
+    }
+
+    fun submitLinkCode() {
+        linkCodeLoading = true
+        linkCodeError = null
+        scope.launch {
+            val result = ShopApiClient.linkBotCode(linkCode)
+            linkCodeLoading = false
+            result.fold(
+                onSuccess = { resp ->
+                    if (resp.ok) {
+                        linkCode = ""
+                        loadAccountOverview()
+                    } else {
+                        linkCodeError = resp.message ?: "Не удалось привязать аккаунт"
+                    }
+                },
+                onFailure = { linkCodeError = "Ошибка сети. Проверьте подключение." }
+            )
         }
     }
 
@@ -211,7 +279,7 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
     // системный браузер — сразу переходим к тарифам, минуя экран кода.
     LaunchedEffect(Unit) {
         if (startLoggedIn) {
-            loadTariffs()
+            loadAccountOverview()
         }
     }
 
@@ -264,7 +332,7 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                                     result.fold(
                                         onSuccess = { resp ->
                                             if (resp.ok) {
-                                                loadTariffs()
+                                                loadAccountOverview()
                                             } else {
                                                 state = PurchaseUiState.LoginError(
                                                     resp.message ?: "Не удалось войти"
@@ -315,6 +383,113 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                                 }
                             }
                         }
+                    }
+                }
+
+                is PurchaseUiState.LoadingAccount -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                is PurchaseUiState.AccountOverview -> {
+                    if (s.keys.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.purchase_your_keys),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        LazyColumn(modifier = Modifier.padding(top = 12.dp)) {
+                            items(s.keys) { key ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text(
+                                            text = key.displayName,
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                        if (key.serverName != null) {
+                                            Text(
+                                                text = key.serverName,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                        val imported = importedKeyIds.contains(key.keyId)
+                                        val importing = importingKeyId == key.keyId
+                                        Button(
+                                            onClick = { importExistingKey(key) },
+                                            enabled = !imported && !importing && !key.subUrl.isNullOrBlank(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 8.dp)
+                                        ) {
+                                            if (importing) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.padding(end = 8.dp),
+                                                    color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                            }
+                                            Text(
+                                                if (imported) stringResource(R.string.purchase_key_imported)
+                                                else stringResource(R.string.purchase_import_key_button)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (s.canLinkOauth) {
+                        Text(
+                            text = stringResource(R.string.purchase_link_account_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = if (s.keys.isNotEmpty()) 20.dp else 0.dp)
+                        )
+                        OutlinedTextField(
+                            value = linkCode,
+                            onValueChange = { linkCode = it.trim() },
+                            label = { Text(stringResource(R.string.purchase_code_label)) },
+                            singleLine = true,
+                            enabled = !linkCodeLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        )
+                        if (linkCodeError != null) {
+                            Text(
+                                text = linkCodeError.orEmpty(),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { submitLinkCode() },
+                            enabled = linkCode.isNotBlank() && !linkCodeLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        ) {
+                            if (linkCodeLoading) {
+                                CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp))
+                            }
+                            Text(stringResource(R.string.purchase_link_account_button))
+                        }
+                    }
+
+                    Button(
+                        onClick = { loadTariffs() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 20.dp)
+                    ) {
+                        Text(stringResource(R.string.purchase_buy_more_button))
                     }
                 }
 
