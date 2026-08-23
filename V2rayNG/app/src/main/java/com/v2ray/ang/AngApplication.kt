@@ -7,9 +7,14 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import com.v2ray.ang.AppConfig.ANG_PACKAGE
 import com.v2ray.ang.handler.AppLocaleManager
+import com.v2ray.ang.handler.AutoUpdateManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.compose.ThemeManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class AngApplication : Application() {
     companion object {
@@ -47,5 +52,17 @@ class AngApplication : Application() {
 
         // Initialize theme state from MMKV
         ThemeManager.refresh()
+
+        // ECLIPSE: автообновление — проверка не чаще раза в сутки при
+        // каждом запуске приложения, без необходимости заходить в
+        // настройки вручную. Реальная сетевая проверка debounce'ится
+        // внутри AutoUpdateManager самостоятельно.
+        applicationScope.launch {
+            AutoUpdateManager.checkAndDownloadIfNeeded(this@AngApplication)
+        }
     }
+
+    /** Собственный scope приложения — Application не имеет встроенного
+     * CoroutineScope в отличие от ViewModel, живёт весь процесс приложения. */
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
