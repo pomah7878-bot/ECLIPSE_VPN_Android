@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.v2ray.ang.R
 import com.v2ray.ang.handler.AngConfigManager
+import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.NavigationBarsSpacer
@@ -135,16 +136,28 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
         state = PurchaseUiState.LoadingAccount
         scope.launch {
             val result = ShopApiClient.getAccountSession()
-            state = result.fold(
-                onSuccess = { resp ->
-                    if (resp.loggedIn) {
-                        PurchaseUiState.AccountOverview(resp.keys, resp.canLinkOauth)
-                    } else {
-                        PurchaseUiState.LoginError("Сессия истекла, попробуйте войти снова")
+            if (result.isSuccess) {
+                val resp = result.getOrThrow()
+                if (resp.loggedIn) {
+                    // Реально проверяем, какие ключи уже добавлены в приложение —
+                    // не полагаемся только на память текущего сеанса просмотра
+                    // экрана (importedKeyIds пустеет при каждом новом открытии).
+                    importedKeyIds = withContext(Dispatchers.IO) {
+                        val existingUrls = MmkvManager.decodeSubscriptions()
+                            .map { it.subscription.url }
+                            .toSet()
+                        resp.keys
+                            .filter { key -> !key.subUrl.isNullOrBlank() && existingUrls.contains(key.subUrl) }
+                            .map { it.keyId }
+                            .toSet()
                     }
-                },
-                onFailure = { PurchaseUiState.LoginError("Не удалось загрузить личный кабинет") }
-            )
+                    state = PurchaseUiState.AccountOverview(resp.keys, resp.canLinkOauth)
+                } else {
+                    state = PurchaseUiState.LoginError("Сессия истекла, попробуйте войти снова")
+                }
+            } else {
+                state = PurchaseUiState.LoginError("Не удалось загрузить личный кабинет")
+            }
         }
     }
 
