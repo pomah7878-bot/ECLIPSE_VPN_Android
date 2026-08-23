@@ -45,10 +45,13 @@ enum class MainDestination(@DrawableRes val iconRes: Int, @StringRes val labelRe
     CheckUpdate(R.drawable.ic_check_update_24dp, R.string.update_check_for_update),
     BackupRestore(R.drawable.ic_restore_24dp, R.string.title_configuration_backup_restore),
     About(R.drawable.ic_about_24dp, R.string.title_about),
-    Purchase(R.drawable.ic_add_24dp, R.string.title_purchase)
+    Purchase(R.drawable.ic_add_24dp, R.string.title_buy_key),
+    MyKeys(R.drawable.ic_lock_24dp, R.string.title_my_keys)
 }
 
 private val primaryDrawerItems = listOf(
+    MainDestination.MyKeys,
+    MainDestination.Purchase,
     MainDestination.Subscriptions,
     MainDestination.PerAppProxy,
     MainDestination.Routing,
@@ -57,7 +60,6 @@ private val primaryDrawerItems = listOf(
 )
 
 private val drawerItems = primaryDrawerItems + listOf(
-    MainDestination.Purchase,
     MainDestination.Promotion,
     MainDestination.Logcat,
     MainDestination.CheckUpdate,

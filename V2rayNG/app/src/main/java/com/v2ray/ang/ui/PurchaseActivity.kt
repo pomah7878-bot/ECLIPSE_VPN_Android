@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,7 +68,17 @@ class PurchaseActivity : BaseComponentActivity() {
     @Composable
     override fun ScreenContent() {
         val cameFromOAuth = intent?.getBooleanExtra(OAuthCallbackActivity.EXTRA_OAUTH_RETURN, false) == true
-        PurchaseScreen(onBackClick = { finish() }, startLoggedIn = cameFromOAuth)
+        val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_KEYS
+        PurchaseScreen(onBackClick = { finish() }, startLoggedIn = cameFromOAuth, mode = mode)
+    }
+
+    companion object {
+        /** Ключ Intent-экстра: с каким намерением открыт экран — "купить"
+         * или "посмотреть свои ключи". Определяет, куда вести пользователя
+         * сразу после успешного входа. */
+        const val EXTRA_MODE = "mode"
+        const val MODE_BUY = "buy"
+        const val MODE_KEYS = "keys"
     }
 }
 
@@ -95,7 +106,7 @@ private sealed class PurchaseUiState {
 }
 
 @Composable
-fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
+fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode: String = PurchaseActivity.MODE_KEYS) {
     var code by remember { mutableStateOf("") }
     var state by remember {
         mutableStateOf<PurchaseUiState>(
@@ -372,7 +383,11 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                                     result.fold(
                                         onSuccess = { resp ->
                                             if (resp.ok) {
-                                                loadAccountOverview()
+                                                if (mode == PurchaseActivity.MODE_BUY) {
+                                                    loadTariffs()
+                                                } else {
+                                                    loadAccountOverview()
+                                                }
                                             } else {
                                                 state = PurchaseUiState.LoginError(
                                                     resp.message ?: "Не удалось войти"
@@ -523,13 +538,23 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                         }
                     }
 
+                    if (s.keys.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.purchase_no_keys_yet),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = if (s.canLinkOauth) 20.dp else 0.dp)
+                        )
+                    }
                     Button(
                         onClick = { loadTariffs() },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 20.dp)
+                            .padding(top = if (s.keys.isEmpty()) 12.dp else 20.dp)
                     ) {
-                        Text(stringResource(R.string.purchase_buy_more_button))
+                        Text(
+                            if (s.keys.isEmpty()) stringResource(R.string.purchase_buy_first_button)
+                            else stringResource(R.string.purchase_buy_more_button)
+                        )
                     }
                 }
 
@@ -691,13 +716,18 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                         text = stringResource(R.string.purchase_success),
                         style = MaterialTheme.typography.titleMedium
                     )
+                    Button(
+                        onClick = {
+                            context.startActivity(Intent(context, MainActivity::class.java))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                    ) {
+                        Text(stringResource(R.string.purchase_go_to_main))
+                    }
                     if (!s.claimCode.isNullOrBlank()) {
-                        Text(
-                            text = stringResource(R.string.purchase_telegram_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                        OutlinedButton(
+                        TextButton(
                             onClick = {
                                 try {
                                     val url = "https://t.me/vless_keysvpn_bot?start=claim_${s.claimCode}"
@@ -708,20 +738,16 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false) {
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 12.dp)
+                                .padding(top = 8.dp)
                         ) {
                             Text(stringResource(R.string.purchase_open_telegram_button))
                         }
-                    }
-                    Button(
-                        onClick = {
-                            context.startActivity(Intent(context, MainActivity::class.java))
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp)
-                    ) {
-                        Text(stringResource(R.string.purchase_go_to_main))
+                        Text(
+                            text = stringResource(R.string.purchase_telegram_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                     }
                 }
 

@@ -149,6 +149,9 @@ class MainActivity : HelperBaseComponentActivity() {
             MainDestination.BackupRestore -> Intent(this, BackupActivity::class.java)
             MainDestination.About -> Intent(this, AboutActivity::class.java)
             MainDestination.Purchase -> Intent(this, PurchaseActivity::class.java)
+                .putExtra(PurchaseActivity.EXTRA_MODE, PurchaseActivity.MODE_BUY)
+            MainDestination.MyKeys -> Intent(this, PurchaseActivity::class.java)
+                .putExtra(PurchaseActivity.EXTRA_MODE, PurchaseActivity.MODE_KEYS)
             MainDestination.Promotion -> {
                 Utils.openUri(
                     this,
