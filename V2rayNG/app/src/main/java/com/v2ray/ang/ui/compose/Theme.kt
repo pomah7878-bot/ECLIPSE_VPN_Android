@@ -28,10 +28,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 private val LightColor = lightColorScheme(
-    primary = Color(0xFF000000), // Black
+    primary = Color(0xFFB8802F), // ECLIPSE Gold (затемнён для контраста на светлом фоне)
     onPrimary = Color(0xFFFFFFFF), // White
-    primaryContainer = Color(0xFFE0E0E0), // Light Gray
-    onPrimaryContainer = Color(0xFF000000), // Black
+    primaryContainer = Color(0xFFF5E4C8), // Pale Gold
+    onPrimaryContainer = Color(0xFF3D2A0A), // Dark Brown
     secondary = Color(0xFFf97910), // Orange
     onSecondary = Color(0xFFFFFFFF), // White
     secondaryContainer = Color(0xFFFFE8D6), // Pale Orange
@@ -65,10 +65,10 @@ private val LightColor = lightColorScheme(
 )
 
 private val DarkColor = darkColorScheme(
-    primary = Color(0xFFC0C0C0), // Silver Gray
-    onPrimary = Color(0xFF303030), // Dark Gray
-    primaryContainer = Color(0xFF474747), // Gray
-    onPrimaryContainer = Color(0xFFE0E0E0), // Light Gray
+    primary = Color(0xFFD69E4A), // ECLIPSE Gold
+    onPrimary = Color(0xFF16141A), // ECLIPSE Dark (текст на золотых кнопках)
+    primaryContainer = Color(0xFF473214), // Dark Gold-Brown
+    onPrimaryContainer = Color(0xFFF5E4C8), // Pale Gold
     secondary = Color(0xFFf97910), // Orange
     onSecondary = Color(0xFF4E2600), // Dark Brown
     secondaryContainer = Color(0xFF6F3800), // Brown
@@ -81,10 +81,10 @@ private val DarkColor = darkColorScheme(
     errorContainer = Color(0xFF93000A), // Dark Red
     onError = Color(0xFF690005), // Deep Red
     onErrorContainer = Color(0xFFFFDAD6), // Light Red
-    background = Color(0xFF1C1B1F), // Near Black
-    onBackground = Color(0xFFE6E1E5), // Light Gray
-    surface = Color(0xFF1C1B1F), // Near Black
-    onSurface = Color(0xFFE6E1E5), // Light Gray
+    background = Color(0xFF0B0B0F), // ECLIPSE Dark (тот же фон, что на сайте/иконке)
+    onBackground = Color(0xFFE8E6E3), // ECLIPSE Light Text
+    surface = Color(0xFF0B0B0F), // ECLIPSE Dark
+    onSurface = Color(0xFFE8E6E3), // ECLIPSE Light Text
     surfaceVariant = Color(0xFF49454F), // Dark Gray
     onSurfaceVariant = Color(0xFFCAC4D0), // Light Gray
     outline = Color(0xFF938F99), // Grayish Purple
@@ -105,7 +105,7 @@ private val DarkColor = darkColorScheme(
 val colorPing = Color(0xFF009966) // Green
 val colorPingRed = Color(0xFFFF0099) // Pink Red
 val colorConfigType = Color(0xFFf97910) // Orange
-val colorFabActive = Color(0xFFf97910) // Orange
+val colorFabActive = Color(0xFFD69E4A) // ECLIPSE Gold
 val colorFabInactiveLight = Color(0xFF9C9C9C) // Gray
 val colorFabInactiveDark = Color(0xFF646464) // Dark Gray
 val dividerColorLight = Color(0xFFE0E0E0) // Light Gray
@@ -127,7 +127,10 @@ object ThemeManager {
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
     private val _dynamicColorEnabled = MutableStateFlow(
-        MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, true)
+        // По умолчанию выключено — иначе фирменные цвета ECLIPSE не видны на
+        // Android 12+, подменяются автоматической темой Material You из
+        // обоев рабочего стола. Пользователь может включить обратно вручную.
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
     )
     val dynamicColorEnabled: StateFlow<Boolean> = _dynamicColorEnabled.asStateFlow()
 
@@ -145,7 +148,7 @@ object ThemeManager {
         _themeMode.value =
             MmkvManager.decodeSettingsString(AppConfig.PREF_UI_MODE_NIGHT, "0") ?: "0"
         _dynamicColorEnabled.value =
-            MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, true)
+            MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
     }
 }
 
