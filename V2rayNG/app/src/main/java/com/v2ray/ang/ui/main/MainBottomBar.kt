@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -99,7 +98,10 @@ fun MainBottomBar(
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    // ECLIPSE-фикс: стандартный размер FAB в Material 3 —
+                    // fillMaxSize() растягивал кнопку на весь экран, т.к.
+                    // FloatingActionButton не ограничивает содержимое сверху
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(coronaGradient),
                 contentAlignment = Alignment.Center
