@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,8 +24,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -67,6 +71,23 @@ fun MainBottomBar(
                 )
             }
         }
+        // ECLIPSE: кнопка-корона — тёмный диск с золотым кольцом по краю
+        // при активном соединении, отсылка к самому логотипу затмения.
+        // FloatingActionButton оставлен без изменений в плане клика/ripple/
+        // доступности — фон сделан прозрачным, а градиент рисуется как
+        // содержимое кнопки поверх.
+        val coronaGradient = if (isRunning) {
+            Brush.radialGradient(
+                colorStops = arrayOf(
+                    0.0f to Color(0xFF16141A),
+                    0.7f to Color(0xFF16141A),
+                    1.0f to Color(0xFFD69E4A),
+                )
+            )
+        } else {
+            val inactiveColor = if (isDarkTheme) colorFabInactiveDark else colorFabInactiveLight
+            Brush.radialGradient(colors = listOf(inactiveColor, inactiveColor))
+        }
         FloatingActionButton(
             onClick = { onAction(MainAction.ToggleService) },
             modifier = Modifier
@@ -74,19 +95,25 @@ fun MainBottomBar(
                 .padding(end = 24.dp)
                 .offset(y = (-28).dp)
                 .navigationBarsPadding(),
-            containerColor = if (isRunning) colorFabActive
-            else if (isDarkTheme) colorFabInactiveDark
-            else colorFabInactiveLight
+            containerColor = Color.Transparent,
         ) {
-            Icon(
-                painter = if (isRunning) painterResource(R.drawable.ic_stop_24dp)
-                else painterResource(R.drawable.ic_play_24dp),
-                contentDescription = stringResource(
-                    if (isRunning) R.string.acc_stop else R.string.acc_start
-                ),
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(coronaGradient),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = if (isRunning) painterResource(R.drawable.ic_stop_24dp)
+                    else painterResource(R.drawable.ic_play_24dp),
+                    contentDescription = stringResource(
+                        if (isRunning) R.string.acc_stop else R.string.acc_start
+                    ),
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }
