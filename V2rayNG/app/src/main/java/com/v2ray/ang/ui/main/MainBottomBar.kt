@@ -131,14 +131,18 @@ fun MainBottomBar(
             val inactiveColor = if (isDarkTheme) colorFabInactiveDark else colorFabInactiveLight
             Brush.radialGradient(colors = listOf(inactiveColor, inactiveColor))
         }
-        // ECLIPSE: кнопка заметно крупнее (88dp вместо стандартных 56dp) +
-        // мягкое внешнее свечение вокруг неё при активном соединении —
-        // второй слой "короны" снаружи самой кнопки.
+        // ECLIPSE-фикс: кнопка заметно крупнее (88dp вместо стандартных
+        // 56dp), но отступ -40dp был рассчитан под старую маленькую кнопку
+        // из оригинального v2rayNG — с увеличенным размером кнопка налезала
+        // на строку статуса под ней (подтверждено скрином пользователя).
+        // Увеличен до -60dp для чистого зазора. Свечение было плоским
+        // полупрозрачным кругом с жёсткой границей — заменено на настоящий
+        // радиальный градиент, плавно гаснущий к краю.
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = 16.dp)
-                .offset(y = (-40).dp)
+                .offset(y = (-60).dp)
                 .navigationBarsPadding()
                 .size(112.dp),
             contentAlignment = Alignment.Center
@@ -148,7 +152,15 @@ fun MainBottomBar(
                     modifier = Modifier
                         .size(112.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFD69E4A).copy(alpha = 0.18f))
+                        .background(
+                            Brush.radialGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color(0xFFD69E4A).copy(alpha = 0.28f),
+                                    0.6f to Color(0xFFD69E4A).copy(alpha = 0.12f),
+                                    1.0f to Color(0xFFD69E4A).copy(alpha = 0.0f),
+                                )
+                            )
+                        )
                 )
             }
             FloatingActionButton(
