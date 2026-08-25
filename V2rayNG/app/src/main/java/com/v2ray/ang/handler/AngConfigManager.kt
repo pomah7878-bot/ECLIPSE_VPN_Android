@@ -486,9 +486,11 @@ object AngConfigManager {
             val proxyUsername = SettingsManager.getSocksUsername()
             val proxyPassword = SettingsManager.getSocksPassword()
 
-            var configText = try {
+            var configText = ""
+            var responseHeaders: Map<String, String> = emptyMap()
+            try {
                 val httpPort = SettingsManager.getHttpPort()
-                HttpUtil.getUrlContentWithUserAgent(
+                val result = HttpUtil.getUrlContentWithHeaders(
                     UrlContentRequest(
                         url = url,
                         userAgent = userAgent,
@@ -499,22 +501,24 @@ object AngConfigManager {
                         proxyPassword = proxyPassword
                     )
                 )
+                configText = result.body
+                responseHeaders = result.headers
             } catch (e: Exception) {
                 LogUtil.e(AppConfig.ANG_PACKAGE, "Update subscription: proxy not ready or other error", e)
-                ""
             }
             if (configText.isEmpty()) {
-                configText = try {
-                    HttpUtil.getUrlContentWithUserAgent(
+                try {
+                    val result = HttpUtil.getUrlContentWithHeaders(
                         UrlContentRequest(
                             url = url,
                             userAgent = userAgent,
                             requestHeaders = requestHeaders
                         )
                     )
+                    configText = result.body
+                    responseHeaders = result.headers
                 } catch (e: Exception) {
                     LogUtil.e(AppConfig.TAG, "Update subscription: Failed to get URL content with user agent", e)
-                    ""
                 }
             }
             if (configText.isEmpty()) {
@@ -524,6 +528,8 @@ object AngConfigManager {
             val count = parseConfigViaSub(configText, it.guid, false)
             if (count > 0) {
                 it.subscription.lastUpdated = System.currentTimeMillis()
+                // ECLIPSE: трафик/срок действия из Subscription-Userinfo, если панель его отдаёт.
+                applySubscriptionUserinfo(it.subscription, responseHeaders)
                 MmkvManager.encodeSubscription(it.guid, it.subscription)
                 LogUtil.i(AppConfig.TAG, "Subscription updated: ${it.subscription.remarks}, $count configs")
                 return SubscriptionUpdateResult(
@@ -538,6 +544,35 @@ object AngConfigManager {
             LogUtil.e(AppConfig.TAG, "Failed to update config via subscription", e)
             return SubscriptionUpdateResult(failureCount = 1)
         }
+    }
+
+    /**
+     * ECLIPSE: парсит заголовок Subscription-Userinfo вида
+     * "upload=123; download=456; total=789; expire=1234567890" и
+     * сохраняет данные в subscription. Молча ничего не делает, если
+     * заголовка нет или он не распознан — не все панели его отдают.
+     */
+    private fun applySubscriptionUserinfo(subscription: SubscriptionItem, headers: Map<String, String>) {
+        val raw = headers["subscription-userinfo"] ?: return
+        var upload: Long? = null
+        var download: Long? = null
+        var total: Long? = null
+        var expire: Long? = null
+        for (part in raw.split(";")) {
+            val kv = part.trim().split("=", limit = 2)
+            if (kv.size != 2) continue
+            val value = kv[1].trim().toLongOrNull() ?: continue
+            when (kv[0].trim()) {
+                "upload" -> upload = value
+                "download" -> download = value
+                "total" -> total = value
+                "expire" -> expire = value
+            }
+        }
+        subscription.trafficUpload = upload
+        subscription.trafficDownload = download
+        subscription.trafficTotal = total
+        subscription.expireAt = expire
     }
 
     /**

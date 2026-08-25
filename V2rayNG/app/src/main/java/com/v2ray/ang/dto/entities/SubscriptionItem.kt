@@ -14,5 +14,13 @@ data class SubscriptionItem(
     var allowInsecureUrl: Boolean = false,
     var userAgent: String? = null,
     var requestHeaders: String? = null,
+    // ECLIPSE: данные из заголовка Subscription-Userinfo при последнем
+    // обновлении — байты, не гигабайты; trafficTotal = 0 означает
+    // безлимитный трафик (соглашение панели); expireAt — Unix-время в
+    // СЕКУНДАХ (как в самом заголовке), не миллисекундах.
+    var trafficUpload: Long? = null,
+    var trafficDownload: Long? = null,
+    var trafficTotal: Long? = null,
+    var expireAt: Long? = null,
 )
 

@@ -143,7 +143,16 @@ object HttpUtil {
      * @throws IOException If an I/O error occurs.
      */
     @Throws(IOException::class)
-    fun getUrlContentWithUserAgent(request: UrlContentRequest): String {
+    /**
+     * ECLIPSE: результат запроса с телом ответа и заголовками — заголовки
+     * нужны для чтения Subscription-Userinfo (трафик/срок действия) при
+     * обновлении подписки. Существующая getUrlContentWithUserAgent()
+     * остаётся тонкой обёрткой с тем же поведением, что и раньше, для
+     * всех прочих вызывающих мест.
+     */
+    data class UrlContentResult(val body: String, val headers: Map<String, String>)
+
+    private fun getUrlContentInternal(request: UrlContentRequest): UrlContentResult {
         var currentUrl = request.url
         var redirects = 0
         val maxRedirects = 3
@@ -193,7 +202,14 @@ object HttpUtil {
                     }
 
                     response.isSuccessful -> {
-                        return response.body?.string() ?: ""
+                        // ECLIPSE: ключи в нижнем регистре — HTTP-заголовки
+                        // регистронезависимы по стандарту, но обычная Map
+                        // в Kotlin ищет с учётом регистра.
+                        val responseHeaders = mutableMapOf<String, String>()
+                        for (name in response.headers.names()) {
+                            response.header(name)?.let { responseHeaders[name.lowercase()] = it }
+                        }
+                        return UrlContentResult(response.body?.string() ?: "", responseHeaders)
                     }
 
                     else -> {
@@ -203,6 +219,15 @@ object HttpUtil {
             }
         }
         throw IOException("Too many redirects")
+    }
+
+    fun getUrlContentWithUserAgent(request: UrlContentRequest): String {
+        return getUrlContentInternal(request).body
+    }
+
+    /** ECLIPSE: как getUrlContentWithUserAgent, но также возвращает заголовки ответа. */
+    fun getUrlContentWithHeaders(request: UrlContentRequest): UrlContentResult {
+        return getUrlContentInternal(request)
     }
 
     private fun applyEmbeddedBasicAuthHeader(rawUrl: String, requestBuilder: Request.Builder) {

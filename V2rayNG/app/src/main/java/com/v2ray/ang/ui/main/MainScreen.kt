@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import com.v2ray.ang.handler.MmkvManager
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.DrawerValue
@@ -269,9 +270,19 @@ fun MainScreen(
                         .padding(innerPadding)
                 ) {
                     if (groups.size > 1) {
+                        val selectedGroupIndex = pagerState.currentPage.coerceIn(0, groups.lastIndex)
+                        val selectedGroupItem = groups.getOrNull(selectedGroupIndex)
+                        // ECLIPSE: карточка трафика/срока действия для текущей
+                        // выбранной вкладки — не трогает саму механику вкладок,
+                        // просто дополнительная информация над ней.
+                        val subscriptionItem = remember(selectedGroupItem?.id) {
+                            selectedGroupItem?.id?.takeIf { it.isNotEmpty() }
+                                ?.let { MmkvManager.decodeSubscription(it) }
+                        }
+                        SubscriptionInfoCard(subscriptionItem)
                         GroupTabBar(
                             groups = groups,
-                            selectedTabIndex = pagerState.currentPage.coerceIn(0, groups.lastIndex),
+                            selectedTabIndex = selectedGroupIndex,
                             mainViewModel = mainViewModel,
                             onTabClick = { targetIndex ->
                                 scope.launch {
