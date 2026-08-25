@@ -269,17 +269,21 @@ fun MainScreen(
                         .fillMaxSize()
                         .padding(innerPadding)
                 ) {
+                    // ECLIPSE-фикс: раньше карточка трафика/срока действия
+                    // была вложена в то же условие "групп больше одной", что
+                    // и вкладки — из-за этого не показывалась вообще для
+                    // самого частого случая (одна подписка у клиента).
+                    // Теперь показ карточки не зависит от количества групп,
+                    // вкладки — по-прежнему только при group.size > 1.
+                    val selectedGroupIndex = pagerState.currentPage.coerceIn(0, groups.lastIndex)
+                    val selectedGroupItem = groups.getOrNull(selectedGroupIndex)
+                    val subscriptionItem = remember(selectedGroupItem?.id) {
+                        selectedGroupItem?.id?.takeIf { it.isNotEmpty() }
+                            ?.let { MmkvManager.decodeSubscription(it) }
+                    }
+                    SubscriptionInfoCard(subscriptionItem)
+
                     if (groups.size > 1) {
-                        val selectedGroupIndex = pagerState.currentPage.coerceIn(0, groups.lastIndex)
-                        val selectedGroupItem = groups.getOrNull(selectedGroupIndex)
-                        // ECLIPSE: карточка трафика/срока действия для текущей
-                        // выбранной вкладки — не трогает саму механику вкладок,
-                        // просто дополнительная информация над ней.
-                        val subscriptionItem = remember(selectedGroupItem?.id) {
-                            selectedGroupItem?.id?.takeIf { it.isNotEmpty() }
-                                ?.let { MmkvManager.decodeSubscription(it) }
-                        }
-                        SubscriptionInfoCard(subscriptionItem)
                         GroupTabBar(
                             groups = groups,
                             selectedTabIndex = selectedGroupIndex,
