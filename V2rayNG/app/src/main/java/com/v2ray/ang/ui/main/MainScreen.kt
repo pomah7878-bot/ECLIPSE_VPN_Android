@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
@@ -44,6 +47,7 @@ fun MainScreen(
     val groups = uiState.groups
     val isLoading by mainViewModel.isLoading.collectAsStateWithLifecycle()
     val isRunning = uiState.isRunning
+    val connectionStartTimeMs = uiState.connectionStartTimeMs
     val displayText = mainViewModel.formatStatus(uiState.status)
     val selectedGuid = uiState.selectedGuid
     val doubleColumnDisplay = uiState.doubleColumnDisplay
@@ -197,7 +201,20 @@ fun MainScreen(
             )
         }
     ) {
+        // ECLIPSE: градиентный фон за контентом и нижней панелью — верхнюю
+        // панель (сложный Material-компонент с поведением при прокрутке)
+        // пока не трогаем, чтобы не рисковать её корректной работой.
+        val eclipseBackgroundGradient = Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF16141A),
+                Color(0xFF0B0B0F),
+            )
+        )
         Scaffold(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(eclipseBackgroundGradient),
+            containerColor = Color.Transparent,
             contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
             topBar = {
                 MainTopBar(
@@ -237,6 +254,7 @@ fun MainScreen(
                     displayText = displayText,
                     isRunning = isRunning,
                     isDarkTheme = isDarkTheme,
+                    connectionStartTimeMs = connectionStartTimeMs,
                     onAction = onAction
                 )
             },

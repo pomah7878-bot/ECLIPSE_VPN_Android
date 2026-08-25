@@ -769,6 +769,14 @@ class MainViewModel(
         _uiState.update { state ->
             state.copy(
                 isRunning = running,
+                // ECLIPSE: фиксируем время СТАРТА только на реальном переходе в
+                // подключено (иначе таймер сбрасывался бы при каждом повторном
+                // вызове этой функции, даже если соединение уже было активно).
+                connectionStartTimeMs = when {
+                    running && state.connectionStartTimeMs == null -> System.currentTimeMillis()
+                    !running -> null
+                    else -> state.connectionStartTimeMs
+                },
                 status = if (!clearTestingText && state.isTesting) state.status
                 else if (running) MainStatus.Connected else MainStatus.Disconnected
             )

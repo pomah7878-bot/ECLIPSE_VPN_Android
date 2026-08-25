@@ -26,7 +26,10 @@ data class MainUiState(
     val locateTarget: LocateTarget? = null,
     val confirmRemove: Boolean = false,
     val doubleColumnDisplay: Boolean = false,
-    val shareQRCodeBitmap: android.graphics.Bitmap? = null
+    val shareQRCodeBitmap: android.graphics.Bitmap? = null,
+    // ECLIPSE: момент реального перехода в isRunning=true (System.currentTimeMillis),
+    // для живого таймера длительности соединения. null, если не подключено.
+    val connectionStartTimeMs: Long? = null
 )
 
 /**
