@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -159,7 +160,12 @@ fun MainBottomBar(
                     modifier = Modifier
                         .size(88.dp)
                         .clip(CircleShape)
-                        .background(coronaGradient),
+                        .background(coronaGradient)
+                        // ECLIPSE: тонкая приглушённая рамка и в отключённом
+                        // состоянии — лёгкий намёк на фирменный стиль вместо
+                        // голого однотонного круга, но заметно менее яркая,
+                        // чем кольцо активного соединения (не спутать статусы).
+                        .border(1.dp, Color(0xFFD69E4A).copy(alpha = 0.25f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

@@ -13,6 +13,7 @@ import com.v2ray.ang.handler.MmkvManager
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
@@ -202,20 +203,29 @@ fun MainScreen(
             )
         }
     ) {
-        // ECLIPSE: градиентный фон за контентом и нижней панелью — верхнюю
-        // панель (сложный Material-компонент с поведением при прокрутке)
-        // пока не трогаем, чтобы не рисковать её корректной работой.
-        val eclipseBackgroundGradient = Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFF16141A),
-                Color(0xFF0B0B0F),
+        // ECLIPSE-фикс: раньше градиент был жёстко тёмным независимо от
+        // темы — на светлой теме это создавало чужеродное тёмное пятно за
+        // контентом (подтверждено скрином пользователя). Теперь применяется
+        // только в тёмной теме; в светлой — обычный Material-фон, без
+        // переопределения (верхнюю панель по-прежнему не трогаем — сложный
+        // компонент с поведением при прокрутке).
+        val eclipseBackgroundGradient = if (isDarkTheme) {
+            Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF16141A),
+                    Color(0xFF0B0B0F),
+                )
             )
-        )
+        } else {
+            null
+        }
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .background(eclipseBackgroundGradient),
-            containerColor = Color.Transparent,
+                .let { m ->
+                    if (eclipseBackgroundGradient != null) m.background(eclipseBackgroundGradient) else m
+                },
+            containerColor = if (isDarkTheme) Color.Transparent else MaterialTheme.colorScheme.background,
             contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
             topBar = {
                 MainTopBar(
