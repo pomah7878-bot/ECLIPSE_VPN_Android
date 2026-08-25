@@ -129,7 +129,10 @@ object AppConfig {
     const val ANDROID_PACKAGE_NAME_LIST_URL = "$GITHUB_RAW_URL/2dust/androidpackagenamelist/master/proxy.txt"
     const val APP_URL = "$GITHUB_URL/pomah7878-bot/ECLIPSE_VPN_Android"
     const val APP_API_URL = "https://api.github.com/repos/pomah7878-bot/ECLIPSE_VPN_Android/releases"
-    const val APP_ISSUES_URL = "$APP_URL/issues"
+    // ECLIPSE: "Обратная связь" ведёт на ИИ-помощника бота (сразу задаёт
+    // вопрос, минуя главное меню), а не на GitHub Issues — унаследовано
+    // от оригинального v2rayNG, не подходило под наш продукт.
+    const val APP_ISSUES_URL = "https://t.me/vless_keysvpn_bot?start=ai_support"
     const val APP_WIKI_MODE = "$APP_URL/wiki/Mode"
     const val APP_PRIVACY_POLICY = "$GITHUB_URL/pomah7878-bot/ECLIPSE_VPN_Android/blob/master/PRIVACY.md"
     const val APP_PROMOTION_URL = "aHR0cHM6Ly9lY2xpcHNlLnVubGltaXRlZC5ib3QubnUvc2hvcA=="
