@@ -142,7 +142,6 @@ object HttpUtil {
      * @return The content of the URL as a string.
      * @throws IOException If an I/O error occurs.
      */
-    @Throws(IOException::class)
     /**
      * ECLIPSE: результат запроса с телом ответа и заголовками — заголовки
      * нужны для чтения Subscription-Userinfo (трафик/срок действия) при
@@ -221,11 +220,13 @@ object HttpUtil {
         throw IOException("Too many redirects")
     }
 
+    @Throws(IOException::class)
     fun getUrlContentWithUserAgent(request: UrlContentRequest): String {
         return getUrlContentInternal(request).body
     }
 
     /** ECLIPSE: как getUrlContentWithUserAgent, но также возвращает заголовки ответа. */
+    @Throws(IOException::class)
     fun getUrlContentWithHeaders(request: UrlContentRequest): UrlContentResult {
         return getUrlContentInternal(request)
     }
