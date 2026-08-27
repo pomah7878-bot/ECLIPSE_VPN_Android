@@ -1,6 +1,7 @@
 package com.v2ray.ang.util
 
 import com.google.gson.Gson
+import com.v2ray.ang.handler.MmkvManager
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,17 +14,30 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
+private const val SHOP_HOST = "eclipse.unlimited.bot.nu"
+private const val PREF_SESSION_VALUE = "shop_session_cookie_value"
+private const val PREF_SESSION_EXPIRES = "shop_session_cookie_expires_ms"
+
 /**
- * Простое in-memory хранилище cookie для сессии магазина. Живёт, пока
- * приложение открыто — при перезапуске нужен повторный вход по коду.
- * Этого достаточно для первой фазы; при желании можно сохранять между
- * запусками через SharedPreferences.
+ * Хранилище cookie для сессии магазина. Сессия персистентна между
+ * запусками приложения через MmkvManager (сервер сам выдаёт cookie на
+ * 30 дней — ограничение "нужно входить заново при каждом перезапуске"
+ * было чисто на стороне приложения, не сервера). При создании пытается
+ * восстановить ранее сохранённую сессию, если она ещё не истекла.
  */
 private class InMemoryCookieJar : CookieJar {
     private val store = mutableMapOf<String, List<Cookie>>()
 
+    init {
+        restorePersistedSession()
+    }
+
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         store[url.host] = cookies
+        cookies.find { it.name == "site_session" }?.let { cookie ->
+            MmkvManager.encodeSettings(PREF_SESSION_VALUE, cookie.value)
+            MmkvManager.encodeSettings(PREF_SESSION_EXPIRES, cookie.expiresAt)
+        }
     }
 
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
@@ -32,6 +46,24 @@ private class InMemoryCookieJar : CookieJar {
 
     fun clear() {
         store.clear()
+        MmkvManager.encodeSettings(PREF_SESSION_VALUE, "")
+        MmkvManager.encodeSettings(PREF_SESSION_EXPIRES, 0L)
+    }
+
+    private fun restorePersistedSession() {
+        val value = MmkvManager.decodeSettingsString(PREF_SESSION_VALUE, "").orEmpty()
+        val expiresAt = MmkvManager.decodeSettingsLong(PREF_SESSION_EXPIRES, 0L)
+        if (value.isBlank() || expiresAt <= System.currentTimeMillis()) return
+        val cookie = Cookie.Builder()
+            .name("site_session")
+            .value(value)
+            .domain(SHOP_HOST)
+            .path("/")
+            .expiresAt(expiresAt)
+            .secure()
+            .httpOnly()
+            .build()
+        store[SHOP_HOST] = listOf(cookie)
     }
 }
 
