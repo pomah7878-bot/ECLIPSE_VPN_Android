@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -435,11 +437,17 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
             )
         }
     ) { innerPadding ->
+        // ECLIPSE-фикс: контейнер не был прокручиваемым — когда список
+        // ключей вырос (добавилась кнопка "Продлить" на каждой карточке),
+        // контент, не поместившийся на экран, просто обрезался (включая
+        // кнопку выхода в самом конце), а не становился доступным через
+        // прокрутку — прокрутки не было вообще.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 20.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             when (val s = state) {
                 is PurchaseUiState.LoginIdle, is PurchaseUiState.LoginLoading, is PurchaseUiState.LoginError -> {
@@ -548,8 +556,8 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                             text = stringResource(R.string.purchase_your_keys),
                             style = MaterialTheme.typography.titleMedium
                         )
-                        LazyColumn(modifier = Modifier.padding(top = 12.dp)) {
-                            items(s.keys) { key ->
+                        Column(modifier = Modifier.padding(top = 12.dp)) {
+                            s.keys.forEach { key ->
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
