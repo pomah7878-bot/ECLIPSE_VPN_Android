@@ -142,6 +142,19 @@ data class TrialCreateResponse(
     @SerializedName("message") val message: String? = null,
 )
 
+data class KeyRenewCreateResponse(
+    @SerializedName("order_id") val orderId: String? = null,
+    @SerializedName("qr_url") val qrUrl: String? = null,
+    @SerializedName("amount_rub") val amountRub: Double? = null,
+    @SerializedName("error") val error: String? = null,
+    @SerializedName("message") val message: String? = null,
+)
+
+data class KeyRenewCheckResponse(
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("message") val message: String? = null,
+)
+
 /**
  * Клиент для взаимодействия с публичным API магазина ECLIPSE Unlimited
  * (/api/public/...) — вход по коду доступа, покупка тарифов, оплата.
@@ -409,6 +422,58 @@ object ShopApiClient {
             }
         } catch (e: Exception) {
             LogUtil.e("ShopApiClient", "createTrial failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Продление КОНКРЕТНОГО существующего ключа (не создаёт новый) —
+     * требует и keyId, и tariffId (тариф, на который продлеваем).
+     */
+    suspend fun createKeyRenewal(keyId: Int, tariffId: Int): Result<KeyRenewCreateResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val body = gson.toJson(mapOf("key_id" to keyId, "tariff_id" to tariffId))
+                    .toRequestBody(JSON_MEDIA_TYPE)
+                val request = Request.Builder()
+                    .url("$BASE_URL/api/public/account/key/renew/create")
+                    .post(body)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    val text = response.body?.string().orEmpty()
+                    if (text.isBlank()) {
+                        return@withContext Result.failure(Exception("Пустой ответ сервера"))
+                    }
+                    val parsed = gson.fromJson(text, KeyRenewCreateResponse::class.java)
+                    if (parsed.error != null) {
+                        return@withContext Result.failure(Exception(parsed.message ?: parsed.error))
+                    }
+                    Result.success(parsed)
+                }
+            } catch (e: Exception) {
+                LogUtil.e("ShopApiClient", "createKeyRenewal failed", e)
+                Result.failure(e)
+            }
+        }
+
+    suspend fun checkKeyRenewal(orderId: String): Result<KeyRenewCheckResponse> = withContext(Dispatchers.IO) {
+        try {
+            val body = gson.toJson(mapOf("order_id" to orderId)).toRequestBody(JSON_MEDIA_TYPE)
+            val request = Request.Builder()
+                .url("$BASE_URL/api/public/account/key/renew/check")
+                .post(body)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (text.isBlank()) {
+                    return@withContext Result.failure(Exception("Пустой ответ сервера"))
+                }
+                Result.success(gson.fromJson(text, KeyRenewCheckResponse::class.java))
+            }
+        } catch (e: Exception) {
+            LogUtil.e("ShopApiClient", "checkKeyRenewal failed", e)
             Result.failure(e)
         }
     }

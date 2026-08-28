@@ -104,6 +104,19 @@ private sealed class PurchaseUiState {
     object Importing : PurchaseUiState()
     data class ImportSuccess(val claimCode: String?) : PurchaseUiState()
     data class ImportFailed(val message: String) : PurchaseUiState()
+
+    // ECLIPSE: продление КОНКРЕТНОГО существующего ключа — не пересекается
+    // с обычной покупкой (Importing/ImportSuccess и т.д.), продление не
+    // требует повторного автоимпорта (ключ уже есть, меняется только срок).
+    data class RenewSelectTariff(val keyId: Int, val tariffs: List<TariffDto>) : PurchaseUiState()
+    data class RenewWaitingPayment(
+        val keyId: Int,
+        val orderId: String,
+        val qrUrl: String?,
+        val amountRub: Double?
+    ) : PurchaseUiState()
+    data class RenewSuccess(val message: String) : PurchaseUiState()
+    data class RenewFailed(val message: String) : PurchaseUiState()
 }
 
 @Composable
@@ -284,6 +297,67 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                     }
                 }
             }
+        }
+    }
+
+    fun startRenewTariffSelect(keyId: Int) {
+        state = PurchaseUiState.LoadingTariffs
+        scope.launch {
+            val result = ShopApiClient.getTariffs()
+            state = result.fold(
+                onSuccess = { resp -> PurchaseUiState.RenewSelectTariff(keyId, resp.tariffs) },
+                onFailure = { PurchaseUiState.TariffsError("Не удалось загрузить тарифы") }
+            )
+        }
+    }
+
+    fun startRenewPolling(orderId: String) {
+        pollJob?.cancel()
+        pollJob = scope.launch {
+            while (isActive) {
+                delay(POLL_INTERVAL_MS)
+                val result = ShopApiClient.checkKeyRenewal(orderId)
+                result.onSuccess { resp ->
+                    when (resp.status) {
+                        "paid" -> {
+                            state = PurchaseUiState.RenewSuccess(resp.message ?: "Ключ продлён!")
+                            return@launch
+                        }
+
+                        "failed" -> {
+                            state = PurchaseUiState.RenewFailed(
+                                resp.message ?: "Не удалось продлить ключ. Попробуйте ещё раз."
+                            )
+                            return@launch
+                        }
+
+                        else -> {
+                            // pending — продолжаем опрос
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun createRenewal(keyId: Int, tariffId: Int) {
+        state = PurchaseUiState.CreatingPayment
+        scope.launch {
+            val result = ShopApiClient.createKeyRenewal(keyId, tariffId)
+            result.fold(
+                onSuccess = { resp ->
+                    val orderId = resp.orderId
+                    if (orderId.isNullOrBlank()) {
+                        state = PurchaseUiState.RenewFailed(resp.message ?: "Не удалось создать платёж")
+                    } else {
+                        state = PurchaseUiState.RenewWaitingPayment(keyId, orderId, resp.qrUrl, resp.amountRub)
+                        startRenewPolling(orderId)
+                    }
+                },
+                onFailure = { e ->
+                    state = PurchaseUiState.RenewFailed(e.message ?: "Не удалось создать платёж")
+                }
+            )
         }
     }
 
@@ -522,6 +596,16 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                                                 if (imported) stringResource(R.string.purchase_key_imported)
                                                 else stringResource(R.string.purchase_import_key_button)
                                             )
+                                        }
+                                        // ECLIPSE: продление конкретного ключа — открывает выбор
+                                        // тарифа, не создаёт новый ключ, только продлевает срок.
+                                        OutlinedButton(
+                                            onClick = { startRenewTariffSelect(key.keyId) },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 8.dp)
+                                        ) {
+                                            Text(stringResource(R.string.purchase_renew_key_button))
                                         }
                                     }
                                 }
@@ -797,6 +881,109 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
 
                 is PurchaseUiState.ImportFailed -> {
                     Text(text = s.message, color = MaterialTheme.colorScheme.error)
+                }
+
+                is PurchaseUiState.RenewSelectTariff -> {
+                    Text(
+                        text = stringResource(R.string.purchase_renew_select_tariff),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    LazyColumn(modifier = Modifier.padding(top = 12.dp)) {
+                        items(s.tariffs) { tariff ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = tariff.name,
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    Text(
+                                        text = "${tariff.durationDays} " +
+                                            stringResource(R.string.purchase_days_suffix) +
+                                            " — ${tariff.priceRub.toInt()} ₽",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Button(
+                                        onClick = { createRenewal(s.keyId, tariff.id) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp)
+                                    ) {
+                                        Text(stringResource(R.string.purchase_renew_key_button))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                is PurchaseUiState.RenewWaitingPayment -> {
+                    Text(
+                        text = stringResource(R.string.purchase_waiting_payment),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    if (s.amountRub != null) {
+                        Text(
+                            text = "${s.amountRub.toInt()} ₽",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    if (!s.qrUrl.isNullOrBlank()) {
+                        Button(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(s.qrUrl)))
+                                } catch (e: Exception) {
+                                    LogUtil.e("PurchaseActivity", "open renewal payment url failed", e)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp)
+                        ) {
+                            Text(stringResource(R.string.purchase_open_payment_button))
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 24.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.padding(end = 12.dp))
+                        Text(stringResource(R.string.purchase_polling_hint))
+                    }
+                }
+
+                is PurchaseUiState.RenewSuccess -> {
+                    Text(
+                        text = s.message,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Button(
+                        onClick = {
+                            context.startActivity(Intent(context, MainActivity::class.java))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                    ) {
+                        Text(stringResource(R.string.purchase_go_to_main))
+                    }
+                }
+
+                is PurchaseUiState.RenewFailed -> {
+                    Text(text = s.message, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(
+                        onClick = { loadAccountOverview() },
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        Text(stringResource(R.string.purchase_retry_button))
+                    }
                 }
             }
             NavigationBarsSpacer()
