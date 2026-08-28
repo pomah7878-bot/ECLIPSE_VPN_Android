@@ -11,10 +11,13 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.v2ray.ang.R
 import com.v2ray.ang.util.LogUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -26,7 +29,9 @@ import java.io.File
  * вне Google Play, независимо от того, как оно написано.
  */
 object AutoUpdateManager {
-    private const val CHECK_INTERVAL_MS = 24L * 60 * 60 * 1000 // раз в сутки
+    // ECLIPSE: ВРЕМЕННО 1 минута для диагностики — вернуть на
+    // 24L * 60 * 60 * 1000 после того, как найдём и подтвердим причину.
+    private const val CHECK_INTERVAL_MS = 60L * 1000
     private const val PREF_LAST_CHECK_MS = "auto_update_last_check_ms"
     private const val NOTIFICATION_CHANNEL_ID = "eclipse_auto_update"
     private const val NOTIFICATION_ID = 9001
@@ -38,46 +43,61 @@ object AutoUpdateManager {
      * запускает фоновую загрузку. Безопасно вызывать при каждом запуске
      * приложения — реальная сетевая проверка произойдёт не чаще раза в сутки.
      */
+    // ECLIPSE: ВРЕМЕННАЯ диагностика через Toast — убрать после того, как
+    // найдём и подтвердим реальную причину, почему автообновление не
+    // предлагает установку. LogUtil недоступен для просмотра без ADB,
+    // Toast виден прямо на экране без специальных инструментов.
+    private suspend fun debugToast(context: Context, message: String) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "[AutoUpdate] $message", Toast.LENGTH_LONG).show()
+        }
+    }
+
     suspend fun checkAndDownloadIfNeeded(context: Context) {
+        debugToast(context, "Проверка запущена")
         val lastCheck = MmkvManager.decodeSettingsLong(PREF_LAST_CHECK_MS, 0L)
         val now = System.currentTimeMillis()
         if (now - lastCheck < CHECK_INTERVAL_MS) {
+            debugToast(context, "Пропущено (debounce), осталось ${(CHECK_INTERVAL_MS - (now - lastCheck)) / 1000}с")
             return
         }
         MmkvManager.encodeSettings(PREF_LAST_CHECK_MS, now)
+        debugToast(context, "Запрашиваю GitHub...")
 
         try {
             val result = UpdateCheckerManager.checkForUpdate(includePreRelease = false)
             if (result.hasUpdate && !result.downloadUrl.isNullOrBlank()) {
+                debugToast(context, "Найдено: v${result.latestVersion}")
                 downloadUpdate(context, result.downloadUrl, result.latestVersion ?: "")
+            } else {
+                debugToast(context, "Обновлений нет (hasUpdate=${result.hasUpdate})")
             }
         } catch (e: Exception) {
+            debugToast(context, "ОШИБКА проверки: ${e.message}")
             LogUtil.e("AutoUpdateManager", "check failed", e)
         }
     }
 
-    private fun downloadUpdate(context: Context, url: String, version: String) {
+    private suspend fun downloadUpdate(context: Context, url: String, version: String) {
         val fileName = "ECLIPSE_VPN_update_${version.ifBlank { "latest" }}.apk"
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-            ?: return
+        if (downloadManager == null) {
+            debugToast(context, "ОШИБКА: DownloadManager недоступен")
+            return
+        }
 
         try {
             val request = DownloadManager.Request(Uri.parse(url))
                 .setTitle(context.getString(R.string.app_name))
                 .setDescription("Загрузка обновления $version")
                 .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
-                // ECLIPSE-фикс: VISIBILITY_HIDDEN требует отдельное разрешение
-                // DOWNLOAD_WITHOUT_NOTIFICATION, которого нет в манифесте —
-                // enqueue() мог падать с SecurityException, тихо перехваченным
-                // ниже, без единого видимого признака для пользователя.
-                // VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION не требует
-                // специального разрешения — покажет обычный системный прогресс
-                // загрузки, затем наше собственное уведомление по готовности.
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION)
 
             val downloadId = downloadManager.enqueue(request)
+            debugToast(context, "Загрузка поставлена в очередь, id=$downloadId")
             registerDownloadCompleteReceiver(context, downloadId, fileName, version)
         } catch (e: Exception) {
+            debugToast(context, "ОШИБКА загрузки: ${e.message}")
             LogUtil.e("AutoUpdateManager", "download enqueue failed", e)
         }
     }
@@ -92,6 +112,11 @@ object AutoUpdateManager {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context, intent: Intent) {
                 val completedId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                Toast.makeText(
+                    appContext,
+                    "[AutoUpdate] Получен ACTION_DOWNLOAD_COMPLETE (id=$completedId, ждём=$downloadId)",
+                    Toast.LENGTH_LONG
+                ).show()
                 if (completedId != downloadId) return
                 try {
                     appContext.unregisterReceiver(this)
@@ -113,9 +138,11 @@ object AutoUpdateManager {
     private fun showInstallNotification(context: Context, fileName: String, version: String) {
         val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
         if (!file.exists()) {
+            Toast.makeText(context, "[AutoUpdate] ОШИБКА: файл не найден (${file.path})", Toast.LENGTH_LONG).show()
             LogUtil.e("AutoUpdateManager", "downloaded file not found", Exception(file.path))
             return
         }
+        Toast.makeText(context, "[AutoUpdate] Файл скачан, показываю уведомление...", Toast.LENGTH_LONG).show()
 
         val apkUri = try {
             FileProvider.getUriForFile(
@@ -124,6 +151,7 @@ object AutoUpdateManager {
                 file,
             )
         } catch (e: Exception) {
+            Toast.makeText(context, "[AutoUpdate] ОШИБКА FileProvider: ${e.message}", Toast.LENGTH_LONG).show()
             LogUtil.e("AutoUpdateManager", "FileProvider.getUriForFile failed", e)
             return
         }
@@ -161,6 +189,12 @@ object AutoUpdateManager {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
+        val notificationsEnabled = notificationManager.areNotificationsEnabled()
+        Toast.makeText(
+            context,
+            "[AutoUpdate] Уведомления разрешены: $notificationsEnabled. Показываю...",
+            Toast.LENGTH_LONG
+        ).show()
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 }
