@@ -107,8 +107,8 @@ private sealed class PurchaseUiState {
 
     // ECLIPSE: продление КОНКРЕТНОГО существующего ключа — не пересекается
     // с обычной покупкой (Importing/ImportSuccess и т.д.), продление не
-    // требует повторного автоимпорта (ключ уже есть, меняется только срок).
-    data class RenewSelectTariff(val keyId: Int, val tariffs: List<TariffDto>) : PurchaseUiState()
+    // требует повторного автоимпорта (ключ уже есть, меняется только срок),
+    // и не требует выбора тарифа — сервер сам берёт текущий тариф ключа.
     data class RenewWaitingPayment(
         val keyId: Int,
         val orderId: String,
@@ -300,17 +300,6 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
         }
     }
 
-    fun startRenewTariffSelect(keyId: Int) {
-        state = PurchaseUiState.LoadingTariffs
-        scope.launch {
-            val result = ShopApiClient.getTariffs()
-            state = result.fold(
-                onSuccess = { resp -> PurchaseUiState.RenewSelectTariff(keyId, resp.tariffs) },
-                onFailure = { PurchaseUiState.TariffsError("Не удалось загрузить тарифы") }
-            )
-        }
-    }
-
     fun startRenewPolling(orderId: String) {
         pollJob?.cancel()
         pollJob = scope.launch {
@@ -340,10 +329,10 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
         }
     }
 
-    fun createRenewal(keyId: Int, tariffId: Int) {
+    fun createRenewal(keyId: Int) {
         state = PurchaseUiState.CreatingPayment
         scope.launch {
-            val result = ShopApiClient.createKeyRenewal(keyId, tariffId)
+            val result = ShopApiClient.createKeyRenewal(keyId)
             result.fold(
                 onSuccess = { resp ->
                     val orderId = resp.orderId
@@ -600,7 +589,7 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                                         // ECLIPSE: продление конкретного ключа — открывает выбор
                                         // тарифа, не создаёт новый ключ, только продлевает срок.
                                         OutlinedButton(
-                                            onClick = { startRenewTariffSelect(key.keyId) },
+                                            onClick = { createRenewal(key.keyId) },
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(top = 8.dp)
@@ -881,43 +870,6 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
 
                 is PurchaseUiState.ImportFailed -> {
                     Text(text = s.message, color = MaterialTheme.colorScheme.error)
-                }
-
-                is PurchaseUiState.RenewSelectTariff -> {
-                    Text(
-                        text = stringResource(R.string.purchase_renew_select_tariff),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    LazyColumn(modifier = Modifier.padding(top = 12.dp)) {
-                        items(s.tariffs) { tariff ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = tariff.name,
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                    Text(
-                                        text = "${tariff.durationDays} " +
-                                            stringResource(R.string.purchase_days_suffix) +
-                                            " — ${tariff.priceRub.toInt()} ₽",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Button(
-                                        onClick = { createRenewal(s.keyId, tariff.id) },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 8.dp)
-                                    ) {
-                                        Text(stringResource(R.string.purchase_renew_key_button))
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
 
                 is PurchaseUiState.RenewWaitingPayment -> {

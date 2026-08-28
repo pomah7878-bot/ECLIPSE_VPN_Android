@@ -430,10 +430,12 @@ object ShopApiClient {
      * Продление КОНКРЕТНОГО существующего ключа (не создаёт новый) —
      * требует и keyId, и tariffId (тариф, на который продлеваем).
      */
-    suspend fun createKeyRenewal(keyId: Int, tariffId: Int): Result<KeyRenewCreateResponse> =
+    // ECLIPSE: tariff_id не передаётся — сервер сам подставляет текущий
+    // тариф ключа, продление всегда на тех же условиях, что были.
+    suspend fun createKeyRenewal(keyId: Int): Result<KeyRenewCreateResponse> =
         withContext(Dispatchers.IO) {
             try {
-                val body = gson.toJson(mapOf("key_id" to keyId, "tariff_id" to tariffId))
+                val body = gson.toJson(mapOf("key_id" to keyId))
                     .toRequestBody(JSON_MEDIA_TYPE)
                 val request = Request.Builder()
                     .url("$BASE_URL/api/public/account/key/renew/create")
