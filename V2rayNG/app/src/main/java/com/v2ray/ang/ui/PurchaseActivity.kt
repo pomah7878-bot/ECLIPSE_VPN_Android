@@ -733,8 +733,8 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                             }
                         }
                     }
-                    LazyColumn(modifier = Modifier.padding(top = 12.dp)) {
-                        items(s.tariffs) { tariff ->
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
+                        s.tariffs.forEach { tariff ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()

@@ -26,7 +26,9 @@ import java.io.File
  * вне Google Play, независимо от того, как оно написано.
  */
 object AutoUpdateManager {
-    private const val CHECK_INTERVAL_MS = 24L * 60 * 60 * 1000 // раз в сутки
+    // ECLIPSE: ВРЕМЕННО для теста — 1 минута вместо суток. Вернуть на
+    // 24L * 60 * 60 * 1000 после подтверждения, что механизм работает.
+    private const val CHECK_INTERVAL_MS = 60L * 1000
     private const val PREF_LAST_CHECK_MS = "auto_update_last_check_ms"
     private const val NOTIFICATION_CHANNEL_ID = "eclipse_auto_update"
     private const val NOTIFICATION_ID = 9001
