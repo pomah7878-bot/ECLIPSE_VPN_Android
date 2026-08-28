@@ -585,6 +585,21 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                             else stringResource(R.string.purchase_buy_more_button)
                         )
                     }
+                    // ECLIPSE: кнопка выхода — сброс сессии, чтобы можно
+                    // было перелогиниться (например, войти под другим
+                    // аккаунтом или заново привязать код из бота).
+                    TextButton(
+                        onClick = {
+                            ShopApiClient.logout()
+                            code = ""
+                            state = PurchaseUiState.LoginIdle
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                    ) {
+                        Text(stringResource(R.string.purchase_logout_button))
+                    }
                 }
 
                 is PurchaseUiState.LoadingTariffs -> {

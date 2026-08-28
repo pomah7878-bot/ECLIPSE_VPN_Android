@@ -26,6 +26,7 @@
     <string name="purchase_link_account_hint">Уже покупали подписку через бота? Введите код из бота, чтобы увидеть свои ключи.</string>
     <string name="purchase_link_account_button">Привязать аккаунт</string>
     <string name="purchase_buy_more_button">Купить подписку</string>
+    <string name="purchase_logout_button">Выйти из аккаунта</string>
     <string name="purchase_telegram_hint">Откройте бота, чтобы получать уведомления и управлять подпиской из Telegram.</string>
     <string name="purchase_open_telegram_button">Открыть в Telegram</string>
     <string name="purchase_trial_title">🎁 Пробный период бесплатно</string>
