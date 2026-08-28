@@ -53,6 +53,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private const val PREF_ONBOARDING_SHOWN = "eclipse_onboarding_shown"
+
 class MainActivity : HelperBaseComponentActivity() {
 
     private val mainViewModel: MainViewModel by viewModels {
@@ -96,6 +98,19 @@ class MainActivity : HelperBaseComponentActivity() {
         mainViewModel.onAction(MainAction.Initialize)
 
         checkAndRequestPermission(PermissionType.POST_NOTIFICATIONS) {}
+
+        // ECLIPSE: при самом первом запуске приложения сразу ведём в
+        // личный кабинет — иначе новый пользователь видит пустой список
+        // серверов без единой подсказки, как купить подписку или
+        // воспользоваться пробным периодом. Срабатывает ровно один раз
+        // за всю жизнь установки (флаг персистентен через MmkvManager).
+        if (!MmkvManager.decodeSettingsBool(PREF_ONBOARDING_SHOWN, false)) {
+            MmkvManager.encodeSettings(PREF_ONBOARDING_SHOWN, true)
+            startActivity(
+                Intent(this, PurchaseActivity::class.java)
+                    .putExtra(PurchaseActivity.EXTRA_MODE, PurchaseActivity.MODE_KEYS)
+            )
+        }
     }
 
     @Composable
