@@ -133,6 +133,20 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
         }
     }
 
+    // ECLIPSE-фикс: перенесена выше loadAccountOverview() — локальные функции
+    // в Kotlin подчиняются порядку объявления (в отличие от методов класса),
+    // а loadAccountOverview() теперь вызывает loadTariffs() при mode=buy.
+    fun loadTariffs() {
+        state = PurchaseUiState.LoadingTariffs
+        scope.launch {
+            val result = ShopApiClient.getTariffs()
+            state = result.fold(
+                onSuccess = { resp -> PurchaseUiState.TariffsList(resp.tariffs, resp.trialAvailable) },
+                onFailure = { PurchaseUiState.TariffsError("Не удалось загрузить тарифы") }
+            )
+        }
+    }
+
     fun loadAccountOverview(silentFallback: Boolean = false) {
         state = PurchaseUiState.LoadingAccount
         scope.launch {
@@ -270,17 +284,6 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                     }
                 }
             }
-        }
-    }
-
-    fun loadTariffs() {
-        state = PurchaseUiState.LoadingTariffs
-        scope.launch {
-            val result = ShopApiClient.getTariffs()
-            state = result.fold(
-                onSuccess = { resp -> PurchaseUiState.TariffsList(resp.tariffs, resp.trialAvailable) },
-                onFailure = { PurchaseUiState.TariffsError("Не удалось загрузить тарифы") }
-            )
         }
     }
 
