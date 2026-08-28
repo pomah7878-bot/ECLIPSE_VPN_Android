@@ -66,7 +66,14 @@ object AutoUpdateManager {
                 .setTitle(context.getString(R.string.app_name))
                 .setDescription("Загрузка обновления $version")
                 .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
+                // ECLIPSE-фикс: VISIBILITY_HIDDEN требует отдельное разрешение
+                // DOWNLOAD_WITHOUT_NOTIFICATION, которого нет в манифесте —
+                // enqueue() мог падать с SecurityException, тихо перехваченным
+                // ниже, без единого видимого признака для пользователя.
+                // VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION не требует
+                // специального разрешения — покажет обычный системный прогресс
+                // загрузки, затем наше собственное уведомление по готовности.
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION)
 
             val downloadId = downloadManager.enqueue(request)
             registerDownloadCompleteReceiver(context, downloadId, fileName, version)
