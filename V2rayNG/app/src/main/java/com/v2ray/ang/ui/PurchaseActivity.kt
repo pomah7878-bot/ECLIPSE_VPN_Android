@@ -109,11 +109,12 @@ private sealed class PurchaseUiState {
 @Composable
 fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode: String = PurchaseActivity.MODE_KEYS) {
     var code by remember { mutableStateOf("") }
-    var state by remember {
-        mutableStateOf<PurchaseUiState>(
-            if (startLoggedIn) PurchaseUiState.LoadingAccount else PurchaseUiState.LoginIdle
-        )
-    }
+    // ECLIPSE-фикс: раньше при обычном открытии экрана (не возврат из OAuth)
+    // сразу показывалась форма входа, даже если валидная сессия уже
+    // сохранена — сохранение cookie (1.10.0) работало, но экран никогда
+    // не пытался ей воспользоваться при обычном запуске. Теперь всегда
+    // начинаем с тихой проверки сессии в фоне.
+    var state by remember { mutableStateOf<PurchaseUiState>(PurchaseUiState.LoadingAccount) }
     var oauthProviders by remember { mutableStateOf<List<String>>(emptyList()) }
     var importingKeyId by remember { mutableStateOf<Int?>(null) }
     var importedKeyIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
@@ -132,7 +133,7 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
         }
     }
 
-    fun loadAccountOverview() {
+    fun loadAccountOverview(silentFallback: Boolean = false) {
         state = PurchaseUiState.LoadingAccount
         scope.launch {
             val result = ShopApiClient.getAccountSession()
@@ -151,10 +152,21 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                             .map { it.keyId }
                             .toSet()
                     }
-                    state = PurchaseUiState.AccountOverview(resp.keys, resp.canLinkOauth)
+                    if (mode == PurchaseActivity.MODE_BUY) {
+                        loadTariffs()
+                    } else {
+                        state = PurchaseUiState.AccountOverview(resp.keys, resp.canLinkOauth)
+                    }
+                } else if (silentFallback) {
+                    // ECLIPSE: тихая фоновая проверка при обычном открытии экрана
+                    // (не явное нажатие "Войти") — нет валидной сессии, просто
+                    // показываем форму входа, без пугающего "сессия истекла".
+                    state = PurchaseUiState.LoginIdle
                 } else {
                     state = PurchaseUiState.LoginError("Сессия истекла, попробуйте войти снова")
                 }
+            } else if (silentFallback) {
+                state = PurchaseUiState.LoginIdle
             } else {
                 state = PurchaseUiState.LoginError("Не удалось загрузить личный кабинет")
             }
@@ -341,10 +353,11 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
 
     // Возврат из OAuthCallbackActivity после успешного входа через
     // системный браузер — сразу переходим к тарифам, минуя экран кода.
+    // При обычном открытии (не через OAuth) тоже пробуем тихо использовать
+    // уже сохранённую сессию (silentFallback=true — без пугающих ошибок,
+    // если сессии нет, просто показываем форму входа).
     LaunchedEffect(Unit) {
-        if (startLoggedIn) {
-            loadAccountOverview()
-        }
+        loadAccountOverview(silentFallback = !startLoggedIn)
     }
 
     Scaffold(
