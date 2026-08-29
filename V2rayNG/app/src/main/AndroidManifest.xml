@@ -304,6 +304,18 @@
         <receiver
             android:name=".handler.UpdateInstallReceiver"
             android:exported="false" />
+        <!-- ECLIPSE: получатель завершения загрузки обновления — тоже
+             статический (не динамический, как было раньше), чтобы не
+             пропадать вместе с процессом, если тот завершится ДО реального
+             окончания загрузки. exported=true — системный broadcast от
+             отдельного процесса DownloadManager, не от нашего приложения. -->
+        <receiver
+            android:name=".handler.DownloadCompleteReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
         <receiver
             android:name=".receiver.BootReceiver"
             android:exported="true"

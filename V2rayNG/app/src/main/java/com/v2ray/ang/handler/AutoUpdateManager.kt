@@ -4,10 +4,8 @@ import android.app.DownloadManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -36,6 +34,15 @@ object AutoUpdateManager {
     private const val NOTIFICATION_CHANNEL_ID = "eclipse_auto_update"
     private const val NOTIFICATION_ID = 9001
     private const val FILE_PROVIDER_AUTHORITY_SUFFIX = ".cache"
+
+    // ECLIPSE: персистентные (не в памяти) данные ожидаемой загрузки —
+    // читаются статическим DownloadCompleteReceiver, который может
+    // сработать в СВЕЖЕМ процессе, если старый уже завершился к моменту
+    // фактического окончания загрузки. Видимость не private — нужны
+    // получателю в отдельном классе.
+    const val PREF_PENDING_DOWNLOAD_ID = "auto_update_pending_download_id"
+    const val PREF_PENDING_FILENAME = "auto_update_pending_filename"
+    const val PREF_PENDING_VERSION = "auto_update_pending_version"
 
     /**
      * Проверяет, пора ли делать очередную проверку обновления (не чаще
@@ -94,91 +101,23 @@ object AutoUpdateManager {
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION)
 
             val downloadId = downloadManager.enqueue(request)
+            // ECLIPSE: сохраняем персистентно (не только в памяти) — если
+            // процесс завершится до реального окончания загрузки, статический
+            // DownloadCompleteReceiver в СВЕЖЕМ процессе сможет прочитать эти
+            // значения и всё равно корректно обработать завершение.
+            MmkvManager.encodeSettings(PREF_PENDING_DOWNLOAD_ID, downloadId)
+            MmkvManager.encodeSettings(PREF_PENDING_FILENAME, fileName)
+            MmkvManager.encodeSettings(PREF_PENDING_VERSION, version)
             debugToast(context, "Загрузка поставлена в очередь, id=$downloadId")
-            registerDownloadCompleteReceiver(context, downloadId, fileName, version)
         } catch (e: Exception) {
             debugToast(context, "ОШИБКА загрузки: ${e.message}")
             LogUtil.e("AutoUpdateManager", "download enqueue failed", e)
         }
     }
 
-    private fun registerDownloadCompleteReceiver(
-        context: Context,
-        downloadId: Long,
-        fileName: String,
-        version: String,
-    ) {
-        val appContext = context.applicationContext
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(receiverContext: Context, intent: Intent) {
-                val completedId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                if (completedId != downloadId) {
-                    // ECLIPSE: короткое сообщение без обрезания текста —
-                    // явно видно, что ID не совпал и мы намеренно игнорируем
-                    // это конкретное срабатывание (чужая/старая загрузка).
-                    Toast.makeText(
-                        appContext,
-                        "[AutoUpdate] Чужой id ($completedId != $downloadId), игнорирую",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    return
-                }
-                Toast.makeText(appContext, "[AutoUpdate] ID СОВПАЛ, проверяю статус...", Toast.LENGTH_LONG).show()
-
-                // ECLIPSE: ACTION_DOWNLOAD_COMPLETE срабатывает и при УСПЕХЕ,
-                // и при ОШИБКЕ загрузки — раньше это не проверялось, просто
-                // сразу пытались показать уведомление об установке.
-                val query = DownloadManager.Query().setFilterById(downloadId)
-                val downloadManager = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-                downloadManager?.query(query)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
-                        val status = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
-                        val reason = if (reasonIndex >= 0) cursor.getInt(reasonIndex) else -1
-                        when (status) {
-                            DownloadManager.STATUS_SUCCESSFUL -> {
-                                Toast.makeText(appContext, "[AutoUpdate] Статус: УСПЕШНО", Toast.LENGTH_LONG).show()
-                            }
-                            DownloadManager.STATUS_FAILED -> {
-                                Toast.makeText(
-                                    appContext,
-                                    "[AutoUpdate] Статус: ОШИБКА ЗАГРУЗКИ, reason=$reason",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                            else -> {
-                                Toast.makeText(appContext, "[AutoUpdate] Статус: $status (неожиданный)", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    } else {
-                        Toast.makeText(appContext, "[AutoUpdate] Запись о загрузке не найдена в DownloadManager", Toast.LENGTH_LONG).show()
-                    }
-                }
-
-                try {
-                    appContext.unregisterReceiver(this)
-                } catch (e: Exception) {
-                    LogUtil.e("AutoUpdateManager", "unregister receiver failed", e)
-                }
-                showInstallNotification(appContext, fileName, version)
-            }
-        }
-        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // ECLIPSE-фикс: ACTION_DOWNLOAD_COMPLETE шлёт СИСТЕМНЫЙ сервис
-            // DownloadManager (отдельный процесс, не наше приложение) —
-            // с RECEIVER_NOT_EXPORTED такое сообщение не доходит до
-            // получателя. Фильтруем по конкретному downloadId внутри
-            // onReceive, так что RECEIVER_EXPORTED здесь безопасен.
-            appContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            appContext.registerReceiver(receiver, filter)
-        }
-    }
-
-    private fun showInstallNotification(context: Context, fileName: String, version: String) {
+    // ECLIPSE: не private — вызывается из DownloadCompleteReceiver
+    // (отдельный класс, статически зарегистрированный в манифесте).
+    fun showInstallNotification(context: Context, fileName: String, version: String) {
         val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
         if (!file.exists()) {
             Toast.makeText(context, "[AutoUpdate] ОШИБКА: файл не найден (${file.path})", Toast.LENGTH_LONG).show()
