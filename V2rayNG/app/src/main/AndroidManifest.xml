@@ -39,6 +39,11 @@
         android:minSdkVersion="34" />
     <!-- <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- ECLIPSE: обязательно с Android 8+ для установки APK через
+         автообновление — без неё система тихо отклоняет попытку установки
+         ещё до показа экрана (подтверждено реальным логом adb logcat:
+         InstallStart запускался и почти мгновенно сам себя закрывал). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
