@@ -2,6 +2,7 @@ package com.v2ray.ang.ui.subscription
 
 import android.app.Application
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.AppConfig.DEFAULT_SUBSCRIPTION_ID
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.SubscriptionUpdateMessage
 import com.v2ray.ang.dto.entities.SubscriptionCache
@@ -22,8 +23,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 class SubscriptionsViewModel(application: Application) : BaseViewModel(application) {
+    // ECLIPSE: служебная запись DEFAULT_SUBSCRIPTION_ID ("Default") —
+    // внутренний, невидимый пользователю "карман" для серверов без
+    // реальной подписки (создаётся автоматически самим v2rayNG). У нас
+    // нет URL, поэтому ей не место среди РЕАЛЬНЫХ подписок на этом
+    // экране управления — сам защитный механизм при этом не тронут.
     private val subscriptions: MutableList<SubscriptionCache> =
-        MmkvManager.decodeSubscriptions().toMutableList()
+        MmkvManager.decodeSubscriptions()
+            .filter { it.guid != DEFAULT_SUBSCRIPTION_ID }
+            .toMutableList()
 
     private val _subsFlow = MutableStateFlow(subscriptions.toList())
     val subsFlow: StateFlow<List<SubscriptionCache>> = _subsFlow.asStateFlow()
@@ -32,7 +40,7 @@ class SubscriptionsViewModel(application: Application) : BaseViewModel(applicati
 
     fun reload() {
         subscriptions.clear()
-        subscriptions.addAll(MmkvManager.decodeSubscriptions())
+        subscriptions.addAll(MmkvManager.decodeSubscriptions().filter { it.guid != DEFAULT_SUBSCRIPTION_ID })
         _subsFlow.value = subscriptions.toList()
     }
 
