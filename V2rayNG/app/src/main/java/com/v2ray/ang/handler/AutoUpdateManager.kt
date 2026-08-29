@@ -138,20 +138,24 @@ object AutoUpdateManager {
             return
         }
 
-        // ECLIPSE-фикс: PendingIntent.getActivity() напрямую на установку
-        // мог не срабатывать, если процесс приложения уже завершился к
-        // моменту нажатия на уведомление. Теперь через getBroadcast() на
-        // статически зарегистрированный (в манифесте) UpdateInstallReceiver —
-        // система сама поднимет процесс при необходимости для доставки.
-        val installBroadcastIntent = Intent(UpdateInstallReceiver.ACTION_INSTALL_UPDATE).apply {
-            setPackage(context.packageName)
-            putExtra(UpdateInstallReceiver.EXTRA_APK_URI, apkUri.toString())
+        // ECLIPSE-фикс №2: получатель (UpdateInstallReceiver) реально
+        // получал нажатие (подтверждено логом — уведомление корректно
+        // исчезало с reason=CLICK), но последующий startActivity() внутри
+        // BroadcastReceiver молча блокировался ограничениями фонового
+        // запуска экранов (особенно жёстко у Huawei/EMUI) — специальное
+        // исключение "это нажатие на уведомление" действует только для
+        // PendingIntent, нацеленного НАПРЯМУЮ на Activity, и не передаётся
+        // через посредника. Возвращено на прямой PendingIntent.getActivity().
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val pendingIntent = PendingIntent.getBroadcast(
+        val pendingIntent = PendingIntent.getActivity(
             context,
             0,
-            installBroadcastIntent,
+            installIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
