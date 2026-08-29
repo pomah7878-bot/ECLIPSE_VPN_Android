@@ -112,12 +112,50 @@ object AutoUpdateManager {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context, intent: Intent) {
                 val completedId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                Toast.makeText(
-                    appContext,
-                    "[AutoUpdate] Получен ACTION_DOWNLOAD_COMPLETE (id=$completedId, ждём=$downloadId)",
-                    Toast.LENGTH_LONG
-                ).show()
-                if (completedId != downloadId) return
+                if (completedId != downloadId) {
+                    // ECLIPSE: короткое сообщение без обрезания текста —
+                    // явно видно, что ID не совпал и мы намеренно игнорируем
+                    // это конкретное срабатывание (чужая/старая загрузка).
+                    Toast.makeText(
+                        appContext,
+                        "[AutoUpdate] Чужой id ($completedId != $downloadId), игнорирую",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return
+                }
+                Toast.makeText(appContext, "[AutoUpdate] ID СОВПАЛ, проверяю статус...", Toast.LENGTH_LONG).show()
+
+                // ECLIPSE: ACTION_DOWNLOAD_COMPLETE срабатывает и при УСПЕХЕ,
+                // и при ОШИБКЕ загрузки — раньше это не проверялось, просто
+                // сразу пытались показать уведомление об установке.
+                val query = DownloadManager.Query().setFilterById(downloadId)
+                val downloadManager = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+                downloadManager?.query(query)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                        val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
+                        val status = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
+                        val reason = if (reasonIndex >= 0) cursor.getInt(reasonIndex) else -1
+                        when (status) {
+                            DownloadManager.STATUS_SUCCESSFUL -> {
+                                Toast.makeText(appContext, "[AutoUpdate] Статус: УСПЕШНО", Toast.LENGTH_LONG).show()
+                            }
+                            DownloadManager.STATUS_FAILED -> {
+                                Toast.makeText(
+                                    appContext,
+                                    "[AutoUpdate] Статус: ОШИБКА ЗАГРУЗКИ, reason=$reason",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            else -> {
+                                Toast.makeText(appContext, "[AutoUpdate] Статус: $status (неожиданный)", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    } else {
+                        Toast.makeText(appContext, "[AutoUpdate] Запись о загрузке не найдена в DownloadManager", Toast.LENGTH_LONG).show()
+                    }
+                }
+
                 try {
                     appContext.unregisterReceiver(this)
                 } catch (e: Exception) {
