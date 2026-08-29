@@ -128,7 +128,12 @@ object AutoUpdateManager {
         }
         val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            appContext.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            // ECLIPSE-фикс: ACTION_DOWNLOAD_COMPLETE шлёт СИСТЕМНЫЙ сервис
+            // DownloadManager (отдельный процесс, не наше приложение) —
+            // с RECEIVER_NOT_EXPORTED такое сообщение не доходит до
+            // получателя. Фильтруем по конкретному downloadId внутри
+            // onReceive, так что RECEIVER_EXPORTED здесь безопасен.
+            appContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             appContext.registerReceiver(receiver, filter)
