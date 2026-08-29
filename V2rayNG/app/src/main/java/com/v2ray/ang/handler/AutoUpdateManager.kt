@@ -9,6 +9,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.Settings
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
@@ -86,6 +87,30 @@ object AutoUpdateManager {
     }
 
     private suspend fun downloadUpdate(context: Context, url: String, version: String) {
+        // ECLIPSE: без этого разрешения APK скачается, но экран установки
+        // будет мгновенно самозакрываться без показа UI (подтверждено
+        // реальным логом adb logcat — InstallStart запускался и тут же
+        // завершался). Направляем пользователя напрямую в нужный системный
+        // экран для НАШЕГО приложения — на Huawei/EMUI этот пункт в обычных
+        // настройках может быть перемещён/переименован, найти вручную
+        // сложно.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !context.packageManager.canRequestPackageInstalls()
+        ) {
+            debugToast(context, "Нужно разрешение на установку — открываю настройки")
+            try {
+                val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(settingsIntent)
+            } catch (e: Exception) {
+                debugToast(context, "ОШИБКА открытия настроек: ${e.message}")
+                LogUtil.e("AutoUpdateManager", "open install permission settings failed", e)
+            }
+            return
+        }
+
         val fileName = "ECLIPSE_VPN_update_${version.ifBlank { "latest" }}.apk"
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
         if (downloadManager == null) {
