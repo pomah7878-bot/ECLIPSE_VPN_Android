@@ -22,60 +22,74 @@ import com.v2ray.ang.util.LogUtil
  */
 class DownloadCompleteReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val completedId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-        val expectedId = MmkvManager.decodeSettingsLong(AutoUpdateManager.PREF_PENDING_DOWNLOAD_ID, -1L)
+        // ECLIPSE: всё тело обёрнуто в try-catch верхнего уровня — раньше
+        // необъяснимая тишина сразу после "ID СОВПАЛ" могла означать
+        // непойманное исключение где-то внутри (MmkvManager, DownloadManager
+        // и т.д.), падающее молча в BroadcastReceiver без единого признака.
+        try {
+            val completedId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+            val expectedId = MmkvManager.decodeSettingsLong(AutoUpdateManager.PREF_PENDING_DOWNLOAD_ID, -1L)
 
-        if (completedId != expectedId) {
+            if (completedId != expectedId) {
+                Toast.makeText(
+                    context,
+                    "[AutoUpdate] Чужой id ($completedId != $expectedId), игнорирую",
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            }
+            Toast.makeText(context, "[AutoUpdate] ID СОВПАЛ, проверяю статус...", Toast.LENGTH_LONG).show()
+
+            val fileName = MmkvManager.decodeSettingsString(AutoUpdateManager.PREF_PENDING_FILENAME, "").orEmpty()
+            val version = MmkvManager.decodeSettingsString(AutoUpdateManager.PREF_PENDING_VERSION, "").orEmpty()
+            Toast.makeText(context, "[AutoUpdate] fileName=$fileName version=$version", Toast.LENGTH_LONG).show()
+
+            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+            if (downloadManager == null) {
+                Toast.makeText(context, "[AutoUpdate] ОШИБКА: DownloadManager недоступен", Toast.LENGTH_LONG).show()
+                return
+            }
+
+            val query = DownloadManager.Query().setFilterById(expectedId)
+            val cursor = downloadManager.query(query)
+            Toast.makeText(context, "[AutoUpdate] Курсор получен: ${cursor != null}", Toast.LENGTH_LONG).show()
+            cursor?.use { c ->
+                if (c.moveToFirst()) {
+                    val statusIndex = c.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    val reasonIndex = c.getColumnIndex(DownloadManager.COLUMN_REASON)
+                    val status = if (statusIndex >= 0) c.getInt(statusIndex) else -1
+                    val reason = if (reasonIndex >= 0) c.getInt(reasonIndex) else -1
+                    when (status) {
+                        DownloadManager.STATUS_SUCCESSFUL -> {
+                            Toast.makeText(context, "[AutoUpdate] Статус: УСПЕШНО", Toast.LENGTH_LONG).show()
+                            AutoUpdateManager.showInstallNotification(context, fileName, version)
+                        }
+                        DownloadManager.STATUS_FAILED -> {
+                            Toast.makeText(
+                                context,
+                                "[AutoUpdate] Статус: ОШИБКА ЗАГРУЗКИ, reason=$reason",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        else -> {
+                            Toast.makeText(context, "[AutoUpdate] Статус: $status (неожиданный)", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } else {
+                    Toast.makeText(context, "[AutoUpdate] Запись о загрузке не найдена", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            MmkvManager.encodeSettings(AutoUpdateManager.PREF_PENDING_DOWNLOAD_ID, -1L)
+        } catch (e: Throwable) {
+            // ECLIPSE: Throwable, а не Exception — ловим и Error-подклассы
+            // (например, NoClassDefFoundError, если что-то не подтянулось).
             Toast.makeText(
                 context,
-                "[AutoUpdate] Чужой id ($completedId != $expectedId), игнорирую",
+                "[AutoUpdate] НЕПОЙМАННОЕ ИСКЛЮЧЕНИЕ: ${e.javaClass.simpleName}: ${e.message}",
                 Toast.LENGTH_LONG
             ).show()
-            return
-        }
-        Toast.makeText(context, "[AutoUpdate] ID СОВПАЛ, проверяю статус...", Toast.LENGTH_LONG).show()
-
-        val fileName = MmkvManager.decodeSettingsString(AutoUpdateManager.PREF_PENDING_FILENAME, "").orEmpty()
-        val version = MmkvManager.decodeSettingsString(AutoUpdateManager.PREF_PENDING_VERSION, "").orEmpty()
-
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-        if (downloadManager == null) {
-            Toast.makeText(context, "[AutoUpdate] ОШИБКА: DownloadManager недоступен", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        val query = DownloadManager.Query().setFilterById(expectedId)
-        downloadManager.query(query)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
-                val status = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
-                val reason = if (reasonIndex >= 0) cursor.getInt(reasonIndex) else -1
-                when (status) {
-                    DownloadManager.STATUS_SUCCESSFUL -> {
-                        Toast.makeText(context, "[AutoUpdate] Статус: УСПЕШНО", Toast.LENGTH_LONG).show()
-                        AutoUpdateManager.showInstallNotification(context, fileName, version)
-                    }
-                    DownloadManager.STATUS_FAILED -> {
-                        Toast.makeText(
-                            context,
-                            "[AutoUpdate] Статус: ОШИБКА ЗАГРУЗКИ, reason=$reason",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                    else -> {
-                        Toast.makeText(context, "[AutoUpdate] Статус: $status (неожиданный)", Toast.LENGTH_LONG).show()
-                    }
-                }
-            } else {
-                Toast.makeText(context, "[AutoUpdate] Запись о загрузке не найдена", Toast.LENGTH_LONG).show()
-            }
-        }
-
-        try {
-            MmkvManager.encodeSettings(AutoUpdateManager.PREF_PENDING_DOWNLOAD_ID, -1L)
-        } catch (e: Exception) {
-            LogUtil.e("DownloadCompleteReceiver", "clear pending id failed", e)
+            LogUtil.e("DownloadCompleteReceiver", "onReceive failed", e)
         }
     }
 }
