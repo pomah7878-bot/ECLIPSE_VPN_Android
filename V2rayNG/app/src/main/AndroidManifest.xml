@@ -298,6 +298,12 @@
                 <action android:name="${applicationId}.action.activity" />
             </intent-filter>
         </receiver>
+        <!-- ECLIPSE: получатель тапа по уведомлению "Обновление готово" —
+             статический, а не динамический, чтобы срабатывать, даже если
+             процесс приложения уже завершился к моменту нажатия. -->
+        <receiver
+            android:name=".handler.UpdateInstallReceiver"
+            android:exported="false" />
         <receiver
             android:name=".receiver.BootReceiver"
             android:exported="true"

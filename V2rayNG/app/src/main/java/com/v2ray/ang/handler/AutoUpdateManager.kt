@@ -161,15 +161,20 @@ object AutoUpdateManager {
             return
         }
 
-        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+        // ECLIPSE-фикс: PendingIntent.getActivity() напрямую на установку
+        // мог не срабатывать, если процесс приложения уже завершился к
+        // моменту нажатия на уведомление. Теперь через getBroadcast() на
+        // статически зарегистрированный (в манифесте) UpdateInstallReceiver —
+        // система сама поднимет процесс при необходимости для доставки.
+        val installBroadcastIntent = Intent(UpdateInstallReceiver.ACTION_INSTALL_UPDATE).apply {
+            setPackage(context.packageName)
+            putExtra(UpdateInstallReceiver.EXTRA_APK_URI, apkUri.toString())
         }
 
-        val pendingIntent = PendingIntent.getActivity(
+        val pendingIntent = PendingIntent.getBroadcast(
             context,
             0,
-            installIntent,
+            installBroadcastIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
