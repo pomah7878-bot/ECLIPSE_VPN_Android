@@ -10,6 +10,7 @@
     <string name="purchase_select_tariff">Выберите тариф</string>
     <string name="purchase_days_suffix">дн.</string>
     <string name="purchase_buy_button">Купить</string>
+    <string name="purchase_pay_by_card_button">Оплатить картой через бота</string>
     <string name="purchase_waiting_payment">Ожидаем оплату</string>
     <string name="purchase_open_payment_button">Оплатить</string>
     <string name="purchase_polling_hint">Проверяем статус платежа…</string>

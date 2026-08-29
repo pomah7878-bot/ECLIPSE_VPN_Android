@@ -763,6 +763,25 @@ fun PurchaseScreen(onBackClick: () -> Unit, startLoggedIn: Boolean = false, mode
                             }
                         }
                     }
+                    // ECLIPSE: оплата картой — через уже проверенный поток
+                    // Telegram-бота (нативный экран оплаты Telegram), а не
+                    // прямо в приложении. Открывает выбор тарифа заново
+                    // внутри бота — deep-link не передаёт конкретный тариф.
+                    TextButton(
+                        onClick = {
+                            try {
+                                val url = "https://t.me/vless_keysvpn_bot?start=buy_card"
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            } catch (e: Exception) {
+                                LogUtil.e("PurchaseActivity", "open card payment failed", e)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                    ) {
+                        Text(stringResource(R.string.purchase_pay_by_card_button))
+                    }
                 }
 
                 is PurchaseUiState.CreatingPayment -> {
