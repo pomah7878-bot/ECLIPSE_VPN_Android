@@ -18,6 +18,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.ui.draw.blur
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -143,19 +145,41 @@ fun MainBottomBar(
         // едва различимой. Иконка внутри: треугольник "play" при отключении
         // не меняется, квадратик "стоп" при подключении теперь ЗЕЛЁНЫЙ —
         // простой, однозначно понятный индикатор состояния вместо белого.
+        // ECLIPSE: увеличенная область — свечению снаружи самой кнопки
+        // нужно место, иначе размытие обрежется границами Box.
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = 16.dp)
                 .offset(y = (-60).dp)
                 .navigationBarsPadding()
-                .size(88.dp),
+                .size(112.dp),
             contentAlignment = Alignment.Center
         ) {
+            if (isRunning) {
+                // ECLIPSE: настоящее неоновое свечение зелёного цвета при
+                // подключении — размытие (blur), а не поддельный градиент.
+                Box(
+                    modifier = Modifier
+                        .size(70.dp)
+                        .blur(26.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2ECC71).copy(alpha = 0.85f))
+                )
+            }
             FloatingActionButton(
                 onClick = { onAction(MainAction.ToggleService) },
                 modifier = Modifier.size(88.dp),
                 containerColor = Color.Transparent,
+                // ECLIPSE: убрана стандартная Material-тень FAB (выглядела
+                // как серый блюр вокруг кнопки на тёмном фоне) — теперь
+                // единственное "свечение" явное и цветное, не случайная тень.
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    focusedElevation = 0.dp,
+                    hoveredElevation = 0.dp,
+                ),
             ) {
                 Box(
                     modifier = Modifier
