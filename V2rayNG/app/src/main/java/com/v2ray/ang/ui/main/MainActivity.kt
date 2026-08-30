@@ -8,7 +8,14 @@ import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AngApplication
 import com.v2ray.ang.AppConfig
@@ -116,27 +123,40 @@ class MainActivity : HelperBaseComponentActivity() {
     @Composable
     override fun ScreenContent() {
         BackHandler { moveTaskToBack(false) }
-        MainScreen(
-            mainViewModel = mainViewModel,
-            onAction = { action ->
-                when (action) {
-                    MainAction.ToggleService -> handleFabAction()
-                    MainAction.TestCurrentServer -> handleLayoutTestClick()
-                    MainAction.ImportQRcode -> importQRcode()
-                    MainAction.ImportClipboard -> importClipboard()
-                    MainAction.ImportConfigLocal -> importConfigLocal()
-                    is MainAction.ImportManually -> importManually(action.type)
-                    MainAction.RestartService -> LauncherManager.restartServiceOrStart(this, ::requestServiceStart)
-                    MainAction.LocateSelectedServer -> mainViewModel.triggerLocateSelectedServer()
-                    is MainAction.SelectServer -> setSelectServer(action.guid)
-                    is MainAction.EditServer -> editServer(action.guid, action.profile)
-                    is MainAction.ShareClipboard -> shareToClipboard(action.guid)
-                    is MainAction.ShareFullContent -> shareFullContentAsync(action.guid)
-                    else -> mainViewModel.onAction(action)
-                }
-            },
-            onNavigate = { route -> navigateTo(route) },
-        )
+        // ECLIPSE: подсказки при первом запуске главного экрана — простая
+        // последовательность карточек поверх затемнённого фона, не точечная
+        // подсветка конкретных элементов (см. OnboardingOverlay.kt).
+        // Отдельно от онбординга на покупку (более ранний, другой шаг).
+        Box(modifier = Modifier.fillMaxSize()) {
+            MainScreen(
+                mainViewModel = mainViewModel,
+                onAction = { action ->
+                    when (action) {
+                        MainAction.ToggleService -> handleFabAction()
+                        MainAction.TestCurrentServer -> handleLayoutTestClick()
+                        MainAction.ImportQRcode -> importQRcode()
+                        MainAction.ImportClipboard -> importClipboard()
+                        MainAction.ImportConfigLocal -> importConfigLocal()
+                        is MainAction.ImportManually -> importManually(action.type)
+                        MainAction.RestartService -> LauncherManager.restartServiceOrStart(this, ::requestServiceStart)
+                        MainAction.LocateSelectedServer -> mainViewModel.triggerLocateSelectedServer()
+                        is MainAction.SelectServer -> setSelectServer(action.guid)
+                        is MainAction.EditServer -> editServer(action.guid, action.profile)
+                        is MainAction.ShareClipboard -> shareToClipboard(action.guid)
+                        is MainAction.ShareFullContent -> shareFullContentAsync(action.guid)
+                        else -> mainViewModel.onAction(action)
+                    }
+                },
+                onNavigate = { route -> navigateTo(route) },
+            )
+            var showOnboardingTooltips by remember { mutableStateOf(shouldShowOnboardingTooltips()) }
+            if (showOnboardingTooltips) {
+                OnboardingOverlay(onDismiss = {
+                    showOnboardingTooltips = false
+                    markOnboardingTooltipsShown()
+                })
+            }
+        }
     }
 
     private fun shareToClipboard(guid: String): Boolean =
