@@ -128,6 +128,20 @@ private fun ServerListPage(
     onMoveServer: (Int, Int) -> Unit,
     contentPadding: PaddingValues
 ) {
+    // ECLIPSE: сортировка по скорости — только когда ручная сортировка
+    // перетаскиванием ВЫКЛЮЧЕНА, иначе конфликтовала бы с уже расставленным
+    // пользователем порядком. Рабочие серверы (testDelayMillis > 0) по
+    // возрастанию задержки сверху; непротестированные/неудачные (<= 0) —
+    // вниз, не удаляются автоматически. sortedBy стабильна — относительный
+    // порядок внутри каждой группы (протестированные/непротестированные)
+    // сохраняется.
+    val displayServers = if (canReorder) {
+        servers
+    } else {
+        servers.sortedBy { server ->
+            if (server.testDelayMillis > 0L) server.testDelayMillis else Long.MAX_VALUE
+        }
+    }
     if (doubleColumnDisplay) {
         val gridState = remember(groupId) {
             lazyGridStates.getOrPut(groupId) { LazyGridState() }
@@ -146,7 +160,7 @@ private fun ServerListPage(
                 .verticalScrollbar(gridState),
             contentPadding = contentPadding
         ) {
-            itemsIndexed(items = servers, key = { _, item -> item.guid }) { _, serverCache ->
+            itemsIndexed(items = displayServers, key = { _, item -> item.guid }) { _, serverCache ->
                 val content: @Composable () -> Unit = {
                     ServerItemColumn(
                         serverCache = serverCache,
@@ -192,7 +206,7 @@ private fun ServerListPage(
                 .verticalScrollbar(listState),
             contentPadding = contentPadding
         ) {
-            itemsIndexed(items = servers, key = { _, item -> item.guid }) { _, serverCache ->
+            itemsIndexed(items = displayServers, key = { _, item -> item.guid }) { _, serverCache ->
                 if (canReorder && reorderableState != null) {
                     ReorderableItem(
                         reorderableState,

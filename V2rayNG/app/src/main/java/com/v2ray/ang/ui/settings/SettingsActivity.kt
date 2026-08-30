@@ -133,6 +133,11 @@ fun SettingsScreen(
     }
     var uiModeNight by rememberMmkvString(AppConfig.PREF_UI_MODE_NIGHT, "0")
     var dynamicColor by rememberMmkvBool(AppConfig.PREF_DYNAMIC_COLOR, true)
+    // ECLIPSE: настраиваемый масштаб шрифта — ключ "eclipse_font_scale"
+    // должен буквально совпадать со значением приватной константы
+    // PREF_FONT_SCALE в ThemeManager (Theme.kt) — это одно и то же
+    // хранилище MMKV, просто константа там private и недоступна отсюда.
+    var fontScale by rememberMmkvString("eclipse_font_scale", "1.0")
 
     var ipv6Enabled by rememberMmkvBool(AppConfig.PREF_IPV6_ENABLED, false)
     var preferIpv6 by rememberMmkvBool(AppConfig.PREF_PREFER_IPV6, false)
@@ -247,6 +252,16 @@ fun SettingsScreen(
                     onCheckedChange = {
                         dynamicColor = it
                         ThemeManager.setDynamicColorEnabled(it)
+                    }
+                )
+                SettingsListItem(
+                    title = "Размер шрифта",
+                    entries = listOf("Маленький", "Обычный", "Крупный", "Очень крупный"),
+                    values = listOf("0.85", "1.0", "1.15", "1.3"),
+                    selectedValue = fontScale,
+                    onSelected = {
+                        fontScale = it
+                        ThemeManager.setFontScale(it.toFloatOrNull() ?: 1.0f)
                     }
                 )
                 SettingsListItem(

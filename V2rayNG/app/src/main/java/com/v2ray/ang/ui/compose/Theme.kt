@@ -19,6 +19,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.v2ray.ang.AppConfig
@@ -144,11 +146,29 @@ object ThemeManager {
         _dynamicColorEnabled.value = enabled
     }
 
+    // ECLIPSE: настраиваемый масштаб шрифта — не зависит от системных
+    // настроек телефона, отдельная настройка внутри приложения (по
+    // примеру аналогичной функции в других VPN-клиентах). Ключ хранится
+    // как строка (не через AppConfig.PREF_*, чтобы не трогать общий файл
+    // констант) — самодостаточно внутри этого файла.
+    private const val PREF_FONT_SCALE = "eclipse_font_scale"
+    private val _fontScale = MutableStateFlow(
+        MmkvManager.decodeSettingsString(PREF_FONT_SCALE, "1.0")?.toFloatOrNull() ?: 1.0f
+    )
+    val fontScale: StateFlow<Float> = _fontScale.asStateFlow()
+
+    fun setFontScale(scale: Float) {
+        MmkvManager.encodeSettings(PREF_FONT_SCALE, scale.toString())
+        _fontScale.value = scale
+    }
+
     fun refresh() {
         _themeMode.value =
             MmkvManager.decodeSettingsString(AppConfig.PREF_UI_MODE_NIGHT, "0") ?: "0"
         _dynamicColorEnabled.value =
             MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
+        _fontScale.value =
+            MmkvManager.decodeSettingsString(PREF_FONT_SCALE, "1.0")?.toFloatOrNull() ?: 1.0f
     }
 }
 
@@ -170,6 +190,7 @@ fun AppTheme(
     content: @Composable () -> Unit
 ) {
     val dynamicColor by ThemeManager.dynamicColorEnabled.collectAsState()
+    val fontScale by ThemeManager.fontScale.collectAsState()
     val context = LocalContext.current
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
@@ -195,7 +216,13 @@ fun AppTheme(
 
     CompositionLocalProvider(
         LocalDarkTheme provides darkTheme,
-        LocalAppSnackbar provides snackbarController
+        LocalAppSnackbar provides snackbarController,
+        // ECLIPSE: настраиваемый масштаб шрифта — density (плотность
+        // пикселей) не трогаем, переопределяем только fontScale.
+        LocalDensity provides Density(
+            density = LocalDensity.current.density,
+            fontScale = fontScale,
+        ),
     ) {
         MaterialTheme(
             colorScheme = colorScheme
