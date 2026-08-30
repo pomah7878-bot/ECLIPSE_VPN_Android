@@ -10,13 +10,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.v2ray.ang.R
 import com.v2ray.ang.util.LogUtil
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -28,9 +25,7 @@ import java.io.File
  * вне Google Play, независимо от того, как оно написано.
  */
 object AutoUpdateManager {
-    // ECLIPSE: ВРЕМЕННО 1 минута для диагностики — вернуть на
-    // 24L * 60 * 60 * 1000 после того, как найдём и подтвердим причину.
-    private const val CHECK_INTERVAL_MS = 60L * 1000
+    private const val CHECK_INTERVAL_MS = 24L * 60 * 60 * 1000 // раз в сутки
     private const val PREF_LAST_CHECK_MS = "auto_update_last_check_ms"
     private const val NOTIFICATION_CHANNEL_ID = "eclipse_auto_update"
     private const val NOTIFICATION_ID = 9001
@@ -51,53 +46,31 @@ object AutoUpdateManager {
      * запускает фоновую загрузку. Безопасно вызывать при каждом запуске
      * приложения — реальная сетевая проверка произойдёт не чаще раза в сутки.
      */
-    // ECLIPSE: ВРЕМЕННАЯ диагностика через Toast — убрать после того, как
-    // найдём и подтвердим реальную причину, почему автообновление не
-    // предлагает установку. LogUtil недоступен для просмотра без ADB,
-    // Toast виден прямо на экране без специальных инструментов.
-    private suspend fun debugToast(context: Context, message: String) {
-        withContext(Dispatchers.Main) {
-            Toast.makeText(context, "[AutoUpdate] $message", Toast.LENGTH_LONG).show()
-        }
-    }
-
     suspend fun checkAndDownloadIfNeeded(context: Context) {
-        debugToast(context, "Проверка запущена")
         val lastCheck = MmkvManager.decodeSettingsLong(PREF_LAST_CHECK_MS, 0L)
         val now = System.currentTimeMillis()
         if (now - lastCheck < CHECK_INTERVAL_MS) {
-            debugToast(context, "Пропущено (debounce), осталось ${(CHECK_INTERVAL_MS - (now - lastCheck)) / 1000}с")
             return
         }
         MmkvManager.encodeSettings(PREF_LAST_CHECK_MS, now)
-        debugToast(context, "Запрашиваю GitHub...")
 
         try {
             val result = UpdateCheckerManager.checkForUpdate(includePreRelease = false)
             if (result.hasUpdate && !result.downloadUrl.isNullOrBlank()) {
-                debugToast(context, "Найдено: v${result.latestVersion}")
                 downloadUpdate(context, result.downloadUrl, result.latestVersion ?: "")
-            } else {
-                debugToast(context, "Обновлений нет (hasUpdate=${result.hasUpdate})")
             }
         } catch (e: Exception) {
-            debugToast(context, "ОШИБКА проверки: ${e.message}")
             LogUtil.e("AutoUpdateManager", "check failed", e)
         }
     }
 
     private suspend fun downloadUpdate(context: Context, url: String, version: String) {
-        // ECLIPSE: без этого разрешения APK скачается, но экран установки
-        // будет мгновенно самозакрываться без показа UI (подтверждено
-        // реальным логом adb logcat — InstallStart запускался и тут же
-        // завершался). Направляем пользователя напрямую в нужный системный
-        // экран для НАШЕГО приложения — на Huawei/EMUI этот пункт в обычных
-        // настройках может быть перемещён/переименован, найти вручную
-        // сложно.
+        // Без этого разрешения APK скачается, но экран установки будет
+        // мгновенно самозакрываться без показа UI — направляем пользователя
+        // напрямую в нужный системный экран для нашего приложения.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !context.packageManager.canRequestPackageInstalls()
         ) {
-            debugToast(context, "Нужно разрешение на установку — открываю настройки")
             try {
                 val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                     data = Uri.parse("package:${context.packageName}")
@@ -105,7 +78,6 @@ object AutoUpdateManager {
                 }
                 context.startActivity(settingsIntent)
             } catch (e: Exception) {
-                debugToast(context, "ОШИБКА открытия настроек: ${e.message}")
                 LogUtil.e("AutoUpdateManager", "open install permission settings failed", e)
             }
             return
@@ -114,7 +86,7 @@ object AutoUpdateManager {
         val fileName = "ECLIPSE_VPN_update_${version.ifBlank { "latest" }}.apk"
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
         if (downloadManager == null) {
-            debugToast(context, "ОШИБКА: DownloadManager недоступен")
+            LogUtil.e("AutoUpdateManager", "DownloadManager unavailable", Exception("DownloadManager is null"))
             return
         }
 
@@ -126,30 +98,26 @@ object AutoUpdateManager {
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION)
 
             val downloadId = downloadManager.enqueue(request)
-            // ECLIPSE: сохраняем персистентно (не только в памяти) — если
-            // процесс завершится до реального окончания загрузки, статический
-            // DownloadCompleteReceiver в СВЕЖЕМ процессе сможет прочитать эти
-            // значения и всё равно корректно обработать завершение.
+            // Сохраняем персистентно (не только в памяти) — если процесс
+            // завершится до реального окончания загрузки, статический
+            // DownloadCompleteReceiver в свежем процессе сможет прочитать
+            // эти значения и всё равно корректно обработать завершение.
             MmkvManager.encodeSettings(PREF_PENDING_DOWNLOAD_ID, downloadId)
             MmkvManager.encodeSettings(PREF_PENDING_FILENAME, fileName)
             MmkvManager.encodeSettings(PREF_PENDING_VERSION, version)
-            debugToast(context, "Загрузка поставлена в очередь, id=$downloadId")
         } catch (e: Exception) {
-            debugToast(context, "ОШИБКА загрузки: ${e.message}")
             LogUtil.e("AutoUpdateManager", "download enqueue failed", e)
         }
     }
 
-    // ECLIPSE: не private — вызывается из DownloadCompleteReceiver
-    // (отдельный класс, статически зарегистрированный в манифесте).
+    // Не private — вызывается из DownloadCompleteReceiver (отдельный
+    // класс, статически зарегистрированный в манифесте).
     fun showInstallNotification(context: Context, fileName: String, version: String) {
         val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
         if (!file.exists()) {
-            Toast.makeText(context, "[AutoUpdate] ОШИБКА: файл не найден (${file.path})", Toast.LENGTH_LONG).show()
             LogUtil.e("AutoUpdateManager", "downloaded file not found", Exception(file.path))
             return
         }
-        Toast.makeText(context, "[AutoUpdate] Файл скачан, показываю уведомление...", Toast.LENGTH_LONG).show()
 
         val apkUri = try {
             FileProvider.getUriForFile(
@@ -158,19 +126,14 @@ object AutoUpdateManager {
                 file,
             )
         } catch (e: Exception) {
-            Toast.makeText(context, "[AutoUpdate] ОШИБКА FileProvider: ${e.message}", Toast.LENGTH_LONG).show()
             LogUtil.e("AutoUpdateManager", "FileProvider.getUriForFile failed", e)
             return
         }
 
-        // ECLIPSE-фикс №2: получатель (UpdateInstallReceiver) реально
-        // получал нажатие (подтверждено логом — уведомление корректно
-        // исчезало с reason=CLICK), но последующий startActivity() внутри
-        // BroadcastReceiver молча блокировался ограничениями фонового
-        // запуска экранов (особенно жёстко у Huawei/EMUI) — специальное
-        // исключение "это нажатие на уведомление" действует только для
-        // PendingIntent, нацеленного НАПРЯМУЮ на Activity, и не передаётся
-        // через посредника. Возвращено на прямой PendingIntent.getActivity().
+        // PendingIntent.getActivity() напрямую (не через посредник-receiver)
+        // — особое исключение Android "это нажатие на уведомление",
+        // обходящее ограничения фонового запуска экранов (особенно жёсткие
+        // у Huawei/EMUI), действует только при прямом таргетинге на Activity.
         val installIntent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(apkUri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -205,12 +168,6 @@ object AutoUpdateManager {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
-        val notificationsEnabled = notificationManager.areNotificationsEnabled()
-        Toast.makeText(
-            context,
-            "[AutoUpdate] Уведомления разрешены: $notificationsEnabled. Показываю...",
-            Toast.LENGTH_LONG
-        ).show()
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 }
