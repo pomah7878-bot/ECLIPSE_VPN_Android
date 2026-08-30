@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.stateDescription
@@ -298,6 +299,26 @@ private fun ServerItemColumn(
     }
 }
 
+// ECLIPSE: цветовая маркировка по протоколу, как в панелях вроде 3x-ui —
+// быстро отличить VLESS/VMESS/Trojan/Hysteria2 и т.д. на глаз, не читая
+// текст. typeDescription приходит в формате "ПРОТОКОЛ / транспорт",
+// поэтому смотрим только префикс до первого " / ". Неизвестные протоколы
+// используют прежний единый оранжевый (colorConfigType) — старое
+// поведение не теряется, просто дополняется для распознанных случаев.
+private fun protocolBadgeColor(typeDescription: String): Color {
+    val protocol = typeDescription.substringBefore(" / ").trim().uppercase()
+    return when {
+        protocol.startsWith("VLESS") -> Color(0xFF4A90D9)
+        protocol.startsWith("VMESS") -> Color(0xFF9B59B6)
+        protocol.startsWith("TROJAN") -> Color(0xFFE74C3C)
+        protocol.startsWith("SHADOWSOCKS") || protocol == "SS" -> Color(0xFF2ECC71)
+        protocol.startsWith("HYSTERIA") -> Color(0xFF17A2B8)
+        protocol.startsWith("WIREGUARD") -> Color(0xFFE9A23B)
+        protocol.startsWith("SOCKS") || protocol.startsWith("HTTP") -> Color(0xFF95A5A6)
+        else -> colorConfigType
+    }
+}
+
 @Composable
 fun ServerListItem(
     remarks: String,
@@ -315,10 +336,16 @@ fun ServerListItem(
     modifier: Modifier = Modifier,
     dragModifier: Modifier = Modifier
 ) {
-    val testResult = if (testDelayMillis == 0L) {
-        ""
-    } else {
-        stringResource(R.string.server_test_delay_value, testDelayMillis)
+    // ECLIPSE: отрицательное значение (обычно -1) для Hysteria2/WireGuard —
+    // не ошибка, а осознанное поведение самого движка: TCP-пинг
+    // бессмыслен для UDP/QUIC-протоколов, поэтому реальный тест для них
+    // просто не запускается в быстром списочном режиме. Раньше это
+    // показывалось буквально как "-1 ms", что выглядело как баг —
+    // заменено на тире, цветовая индикация (colorPingRed) не тронута.
+    val testResult = when {
+        testDelayMillis == 0L -> ""
+        testDelayMillis < 0L -> "—"
+        else -> stringResource(R.string.server_test_delay_value, testDelayMillis)
     }
     val selectedStateDescription = if (isSelected) {
         stringResource(R.string.acc_selected_server)
@@ -372,10 +399,12 @@ fun ServerListItem(
             }
         }
 
+        // ECLIPSE: чуть плотнее отступы — компактнее список без потери
+        // читаемости (было 8dp/8dp, стало 6dp/6dp сверху-снизу).
         Column(
             Modifier
                 .weight(1f)
-                .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(remarks, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Paragraph), maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -411,7 +440,7 @@ fun ServerListItem(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (subscriptionRemarks.isNotBlank()) {
                     Box(
@@ -425,9 +454,17 @@ fun ServerListItem(
                 }
                 Text(statistics, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(typeDescription, style = MaterialTheme.typography.bodySmall, color = colorConfigType, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                val badgeColor = protocolBadgeColor(typeDescription)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(badgeColor.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(typeDescription, style = MaterialTheme.typography.bodySmall, color = badgeColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 Text(testResult, style = MaterialTheme.typography.bodySmall, color = if (testDelayMillis < 0L) colorPingRed else colorPing, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
