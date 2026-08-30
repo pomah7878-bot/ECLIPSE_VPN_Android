@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -139,29 +138,20 @@ fun MainBottomBar(
         // Увеличен до -60dp для чистого зазора. Свечение было плоским
         // полупрозрачным кругом с жёсткой границей — заменено на настоящий
         // радиальный градиент, плавно гаснущий к краю.
+        // ECLIPSE: по просьбе пользователя — убрано размытие вокруг кнопки
+        // (выглядело нечётко), граница кнопки стала явной и заметной вместо
+        // едва различимой. Иконка внутри: треугольник "play" при отключении
+        // не меняется, квадратик "стоп" при подключении теперь ЗЕЛЁНЫЙ —
+        // простой, однозначно понятный индикатор состояния вместо белого.
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = 16.dp)
                 .offset(y = (-60).dp)
                 .navigationBarsPadding()
-                .size(112.dp),
+                .size(88.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (isRunning) {
-                // ECLIPSE: настоящее неоновое свечение через размытие (blur),
-                // а не поддельное кольцо-градиент — яркий насыщенный круг,
-                // размытие создаёт естественный мягкий "выброс" света наружу,
-                // как у настоящей неоновой подсветки, без ощущения ореола
-                // с чёткой видимой границей.
-                Box(
-                    modifier = Modifier
-                        .size(70.dp)
-                        .blur(26.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFD69E4A).copy(alpha = 0.9f))
-                )
-            }
             FloatingActionButton(
                 onClick = { onAction(MainAction.ToggleService) },
                 modifier = Modifier.size(88.dp),
@@ -172,11 +162,7 @@ fun MainBottomBar(
                         .size(88.dp)
                         .clip(CircleShape)
                         .background(coronaGradient)
-                        // ECLIPSE: тонкая приглушённая рамка и в отключённом
-                        // состоянии — лёгкий намёк на фирменный стиль вместо
-                        // голого однотонного круга, но заметно менее яркая,
-                        // чем кольцо активного соединения (не спутать статусы).
-                        .border(1.dp, Color(0xFFD69E4A).copy(alpha = 0.25f), CircleShape),
+                        .border(2.dp, Color(0xFFD69E4A), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -185,7 +171,7 @@ fun MainBottomBar(
                         contentDescription = stringResource(
                             if (isRunning) R.string.acc_stop else R.string.acc_start
                         ),
-                        tint = Color.White,
+                        tint = if (isRunning) Color(0xFF2ECC71) else Color.White,
                         modifier = Modifier.size(32.dp)
                     )
                 }
