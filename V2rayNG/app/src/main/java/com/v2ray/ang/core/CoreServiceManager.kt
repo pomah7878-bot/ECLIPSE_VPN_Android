@@ -31,6 +31,8 @@ import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import com.v2ray.ang.extension.delay
 import kotlinx.coroutines.launch
 import libv2ray.CoreCallbackHandler
@@ -47,6 +49,20 @@ object CoreServiceManager {
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
     private var networkMonitor: NetworkMonitor? = null
+
+    // ECLIPSE: авто-переподключение на альтернативный сервер при "тихом"
+    // сбое — туннель формально работает (сервис не падает), но реальный
+    // трафик не проходит (например, Reality-рукопожатие молча отклонено
+    // конкретной сетью). Периодическая проверка через тот же механизм,
+    // что и настоящий тест пинга (measureOutboundDelay через движок), а
+    // не поддельный обычный HTTP-запрос, который мог бы не пойти через
+    // сам туннель.
+    private var healthCheckJob: Job? = null
+    private var healthCheckConsecutiveFailures = 0
+    private var lastServerSwitchAtMs = 0L
+    private const val HEALTH_CHECK_INTERVAL_MS = 45_000L
+    private const val HEALTH_CHECK_FAILURE_THRESHOLD = 2
+    private const val HEALTH_CHECK_MIN_SWITCH_INTERVAL_MS = 120_000L
 
     @Volatile
     private var isReloading = false
@@ -117,6 +133,13 @@ object CoreServiceManager {
         currentVpnInterface = vpnInterface
         launchCore(service, vpnInterface)
         startNetworkMonitor(service)
+        // ECLIPSE: авто-переподключение — экспериментальная функция,
+        // по умолчанию выключена, включается пользователем вручную в
+        // настройках. Ключ буквально совпадает с тем, что использует
+        // SettingsActivity.kt для того же переключателя.
+        if (MmkvManager.decodeSettingsBool("eclipse_auto_reconnect_enabled", false)) {
+            startHealthCheck(service)
+        }
     }
 
     @Throws(Exception::class)
@@ -189,6 +212,7 @@ object CoreServiceManager {
         networkMonitor?.unregister()
         networkMonitor = null
         currentVpnInterface = null
+        stopHealthCheck()
 
         if (isRunning()) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -224,6 +248,87 @@ object CoreServiceManager {
      * All three services share this manager, so the tunnel recovers from a handover in proxy only
      * and root mode as well, not just behind the VPN interface.
      */
+    // ECLIPSE: запускается один раз при реальном старте соединения (не
+    // при каждой перезагрузке ядра из-за смены сети — тот случай уже
+    // обрабатывается отдельно через NetworkMonitor/reloadCore).
+    private fun startHealthCheck(service: Service) {
+        healthCheckJob?.cancel()
+        healthCheckConsecutiveFailures = 0
+        healthCheckJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive) {
+                delay(HEALTH_CHECK_INTERVAL_MS)
+                if (!isRunning() || isReloading) continue
+                val healthy = checkTunnelHealth(service)
+                if (healthy) {
+                    healthCheckConsecutiveFailures = 0
+                } else {
+                    healthCheckConsecutiveFailures++
+                    LogUtil.w(
+                        AppConfig.TAG,
+                        "StartCore-Manager: Health check failed ($healthCheckConsecutiveFailures/$HEALTH_CHECK_FAILURE_THRESHOLD)"
+                    )
+                    if (healthCheckConsecutiveFailures >= HEALTH_CHECK_FAILURE_THRESHOLD) {
+                        healthCheckConsecutiveFailures = 0
+                        trySwitchToFasterAlternative(service)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopHealthCheck() {
+        healthCheckJob?.cancel()
+        healthCheckJob = null
+        healthCheckConsecutiveFailures = 0
+    }
+
+    // ECLIPSE: та же логика измерения, что и настоящий рабочий тест пинга
+    // (не поддельный HTTP-запрос в обход движка) — через
+    // measureOutboundDelay, гарантированно проверяет именно текущий
+    // активный туннель, а не что-то ещё.
+    private suspend fun checkTunnelHealth(service: Service): Boolean {
+        val guid = MmkvManager.getSelectServer() ?: return false
+        val result = CoreConfigManager.getV2rayConfig4Speedtest(service, guid)
+        if (!result.status) return false
+        val delayMs = CoreNativeManager.measureOutboundDelay(result.content, SettingsManager.getDelayTestUrl())
+        return delayMs > 0L
+    }
+
+    // ECLIPSE: выбирает самый быстрый (по уже сохранённому testDelayMillis
+    // из прошлых тестов) сервер в той же группе/подписке, кроме текущего,
+    // и переключается на него через уже существующий reloadCore() —
+    // reloadCore() сам перечитывает MmkvManager.getSelectServer() заново
+    // при каждом вызове, поэтому достаточно сначала поменять выбранный
+    // сервер. Ограничение по времени между переключениями — не чаще раза
+    // в HEALTH_CHECK_MIN_SWITCH_INTERVAL_MS, чтобы не создавать петлю
+    // частых переключений при общей нестабильности сети.
+    private fun trySwitchToFasterAlternative(service: Service) {
+        val now = System.currentTimeMillis()
+        if (now - lastServerSwitchAtMs < HEALTH_CHECK_MIN_SWITCH_INTERVAL_MS) {
+            LogUtil.w(AppConfig.TAG, "StartCore-Manager: Skip auto-switch, too soon since last switch")
+            return
+        }
+        val currentGuid = MmkvManager.getSelectServer() ?: return
+        val subId = currentConfig?.subscriptionId.orEmpty()
+        val candidate = MmkvManager.decodeServerList(subId)
+            .asSequence()
+            .filter { it != currentGuid }
+            .mapNotNull { guid ->
+                val aff = MmkvManager.decodeServerAffiliationInfo(guid)
+                if (aff != null && aff.testDelayMillis > 0L) guid to aff.testDelayMillis else null
+            }
+            .minByOrNull { it.second }
+            ?.first
+        if (candidate == null) {
+            LogUtil.w(AppConfig.TAG, "StartCore-Manager: No healthy alternative server found for auto-switch")
+            return
+        }
+        LogUtil.i(AppConfig.TAG, "StartCore-Manager: Auto-switching from $currentGuid to $candidate")
+        lastServerSwitchAtMs = now
+        MmkvManager.setSelectServer(candidate)
+        reloadCore()
+    }
+
     private fun startNetworkMonitor(service: Service) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
         if (networkMonitor != null) return

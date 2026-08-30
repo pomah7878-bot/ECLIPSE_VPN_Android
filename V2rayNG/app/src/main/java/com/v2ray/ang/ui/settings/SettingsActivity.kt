@@ -138,6 +138,11 @@ fun SettingsScreen(
     // PREF_FONT_SCALE в ThemeManager (Theme.kt) — это одно и то же
     // хранилище MMKV, просто константа там private и недоступна отсюда.
     var fontScale by rememberMmkvString("eclipse_font_scale", "1.0")
+    // ECLIPSE: авто-переподключение при "тихом" сбое (когда туннель
+    // формально работает, но трафик не идёт) — экспериментальная функция,
+    // по умолчанию выключена. Ключ буквально совпадает с тем, что читает
+    // CoreServiceManager.kt перед запуском проверки.
+    var autoReconnectEnabled by rememberMmkvBool("eclipse_auto_reconnect_enabled", false)
 
     var ipv6Enabled by rememberMmkvBool(AppConfig.PREF_IPV6_ENABLED, false)
     var preferIpv6 by rememberMmkvBool(AppConfig.PREF_PREFER_IPV6, false)
@@ -262,6 +267,14 @@ fun SettingsScreen(
                     onSelected = {
                         fontScale = it
                         ThemeManager.setFontScale(it.toFloatOrNull() ?: 1.0f)
+                    }
+                )
+                SettingsSwitchItem(
+                    title = "Авто-переподключение при сбое",
+                    summary = "Периодически проверяет интернет через туннель; при повторных сбоях переключается на другой сервер из той же подписки",
+                    checked = autoReconnectEnabled,
+                    onCheckedChange = {
+                        autoReconnectEnabled = it
                     }
                 )
                 SettingsListItem(
