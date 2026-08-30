@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -148,19 +149,17 @@ fun MainBottomBar(
             contentAlignment = Alignment.Center
         ) {
             if (isRunning) {
+                // ECLIPSE: настоящее неоновое свечение через размытие (blur),
+                // а не поддельное кольцо-градиент — яркий насыщенный круг,
+                // размытие создаёт естественный мягкий "выброс" света наружу,
+                // как у настоящей неоновой подсветки, без ощущения ореола
+                // с чёткой видимой границей.
                 Box(
                     modifier = Modifier
-                        .size(112.dp)
+                        .size(70.dp)
+                        .blur(26.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color(0xFFD69E4A).copy(alpha = 0.28f),
-                                    0.6f to Color(0xFFD69E4A).copy(alpha = 0.12f),
-                                    1.0f to Color(0xFFD69E4A).copy(alpha = 0.0f),
-                                )
-                            )
-                        )
+                        .background(Color(0xFFD69E4A).copy(alpha = 0.9f))
                 )
             }
             FloatingActionButton(
