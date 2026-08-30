@@ -99,9 +99,16 @@ fun MainBottomBar(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
+                    // ECLIPSE-фикс: раньше цвет не задавался явно — текст
+                    // наследовал его от фона Column, который был убран для
+                    // просвечивания градиента, из-за чего цвет остался
+                    // неподходящим (плохо читался на тёмном фоне). Теперь
+                    // явный, тема-осведомлённый цвет — корректен и в
+                    // тёмной, и в светлой теме.
                     Text(
                         text = displayText,
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.semantics {
                             contentDescription = displayText
                         }

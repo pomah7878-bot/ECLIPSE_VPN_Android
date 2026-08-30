@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -91,6 +93,25 @@ fun SubscriptionInfoCard(subscriptionItem: SubscriptionItem?) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 4.dp),
+            )
+            // ECLIPSE: настоящий визуальный прогресс-бар вместо голого
+            // текста — при безлимите (total=0) показываем полностью
+            // заполненную декоративную полосу (нет процента, который имел
+            // бы смысл считать), при известном лимите — реальную долю.
+            val progress = if (total > 0) (used.toFloat() / total.toFloat()).coerceIn(0f, 1f) else 1f
+            // ECLIPSE: используем прямой Float-параметр (не лямбду) —
+            // совместимо с более широким диапазоном версий Material3, не
+            // проверенных заранее в этом проекте; лямбда-форма API новее
+            // и могла бы не скомпилироваться на более старой версии
+            // библиотеки.
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+                    .height(4.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
 
             AnimatedVisibility(
