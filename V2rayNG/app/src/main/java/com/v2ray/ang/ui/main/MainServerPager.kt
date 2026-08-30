@@ -305,6 +305,19 @@ private fun ServerItemColumn(
 // поэтому смотрим только префикс до первого " / ". Неизвестные протоколы
 // используют прежний единый оранжевый (colorConfigType) — старое
 // поведение не теряется, просто дополняется для распознанных случаев.
+// ECLIPSE: медаль за скорость — по абсолютным порогам пинга (не по
+// относительному месту в списке, что потребовало бы прокидывать ранг
+// через несколько уровней функций от списка вниз до карточки — риск
+// ошибиться в сигнатурах нескольких мест сразу). testDelayMillis <= 0
+// значит "не тестировался" или "ошибка" — медали не показываем.
+private fun speedMedal(testDelayMillis: Long): String? = when {
+    testDelayMillis <= 0L -> null
+    testDelayMillis <= 30L -> "\uD83E\uDD47" // 🥇
+    testDelayMillis <= 80L -> "\uD83E\uDD48" // 🥈
+    testDelayMillis <= 200L -> "\uD83E\uDD49" // 🥉
+    else -> null
+}
+
 private fun protocolBadgeColor(typeDescription: String): Color {
     val protocol = typeDescription.substringBefore(" / ").trim().uppercase()
     return when {
@@ -408,6 +421,9 @@ fun ServerListItem(
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(remarks, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Paragraph), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                speedMedal(testDelayMillis)?.let { medal ->
+                    Text(medal, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 4.dp))
+                }
                 if (doubleColumnDisplay) {
                     IconButton(onClick = onMore, Modifier.size(36.dp)) {
                         Icon(
