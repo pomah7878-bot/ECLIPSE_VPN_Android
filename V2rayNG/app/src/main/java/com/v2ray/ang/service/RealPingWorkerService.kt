@@ -132,22 +132,34 @@ class RealPingWorkerService(
         }
     }
 
-    private fun startTcping(guid: String): Long {
+    private suspend fun startTcping(guid: String): Long {
         val retFailure = -1L
 
         val config = MmkvManager.decodeServerConfig(guid) ?: return retFailure
+
+        // ECLIPSE: Hysteria2/WireGuard/h3 — UDP/QUIC-протоколы, обычный
+        // TCP-коннект для них в принципе неприменим и раньше всегда давал
+        // -1 (выглядело как поломка), хотя рабочий способ измерения для
+        // них уже существует отдельно — startRealPing(), через сам движок
+        // Xray-core. Быстрая проверка теперь делегирует именно этим
+        // протоколам к рабочему методу, оставаясь быстрой TCP-проверкой
+        // для всех остальных — не нужно объяснять пользователю разницу
+        // между "Test TCP delays" и "Test real delays", быстрый вариант
+        // просто корректен всегда.
+        val isUdpBased = config.configType == EConfigType.HYSTERIA2 ||
+            config.configType == EConfigType.WIREGUARD ||
+            config.alpn?.split(',')?.all { it.trim().startsWith("h3") } == true
+        if (isUdpBased) {
+            return startRealPing(guid)
+        }
+
         if (!config.configType.isComplexType()
-            && config.configType != EConfigType.HYSTERIA2
-            && config.configType != EConfigType.WIREGUARD
-            && config.alpn?.split(',')?.all { it.trim().startsWith("h3") } != true
             && config.server.isNotNullEmpty()
             && config.serverPort?.toIntOrNull() != null
         ) {
             val url = config.server.orEmpty()
             val port = config.serverPort.orEmpty().toInt()
-            val tcpTime = SpeedtestManager.socketConnectTime(url, port, 1000)
-
-            return tcpTime
+            return SpeedtestManager.socketConnectTime(url, port, 1000)
         }
 
         return retFailure
