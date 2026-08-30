@@ -138,7 +138,7 @@ class MainActivity : HelperBaseComponentActivity() {
                         MainAction.ImportClipboard -> importClipboard()
                         MainAction.ImportConfigLocal -> importConfigLocal()
                         is MainAction.ImportManually -> importManually(action.type)
-                        MainAction.RestartService -> LauncherManager.restartServiceOrStart(this, ::requestServiceStart)
+                        MainAction.RestartService -> LauncherManager.restartServiceOrStart(this@MainActivity, ::requestServiceStart)
                         MainAction.LocateSelectedServer -> mainViewModel.triggerLocateSelectedServer()
                         is MainAction.SelectServer -> setSelectServer(action.guid)
                         is MainAction.EditServer -> editServer(action.guid, action.profile)
