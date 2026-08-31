@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,7 +10,12 @@ plugins {
 // Читаем SENTRY_DSN из local.properties (в .gitignore, никогда не коммитится)
 // или из переменной окружения SENTRY_DSN (для CI). Если ничего не задано —
 // поле будет пустой строкой, и Sentry просто не инициализируется (см. AngApplication).
-val localProperties = java.util.Properties().apply {
+//
+// Явный import вместо полного квалифицированного имени java.util.Properties —
+// в контексте AGP 9 typesafe-accessor'ов полное имя ловит "Unresolved
+// reference 'util'" (что-то в generated accessors конфликтует с идентификатором
+// "java" на этом уровне видимости).
+val localProperties = Properties().apply {
     val localFile = rootProject.file("local.properties")
     if (localFile.exists()) {
         localFile.inputStream().use { load(it) }
