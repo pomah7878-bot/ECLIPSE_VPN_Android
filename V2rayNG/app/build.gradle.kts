@@ -5,6 +5,18 @@ plugins {
     id("com.jaredsburrows.license")
 }
 
+// Читаем SENTRY_DSN из local.properties (в .gitignore, никогда не коммитится)
+// или из переменной окружения SENTRY_DSN (для CI). Если ничего не задано —
+// поле будет пустой строкой, и Sentry просто не инициализируется (см. AngApplication).
+val localProperties = java.util.Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localFile.inputStream().use { load(it) }
+    }
+}
+val sentryDsn: String =
+    (localProperties.getProperty("SENTRY_DSN") ?: System.getenv("SENTRY_DSN") ?: "")
+
 android {
     namespace = "com.v2ray.ang"
     compileSdk = 37
@@ -15,6 +27,8 @@ android {
         targetSdk = 37
         versionCode = 745
         versionName = "1.20.0"
+
+        buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {
@@ -202,6 +216,10 @@ dependencies {
 
     // Custom Tabs — for native OAuth login (Google/Yandex/VK) inside the app
     implementation(libs.androidx.browser)
+
+    // Sentry — краш-репортинг. DSN подставляется через BuildConfig.SENTRY_DSN
+    // (см. local.properties), инициализация — в AngApplication.onCreate().
+    implementation(libs.sentry.android)
 
     // Testing Libraries
     testImplementation(libs.junit)

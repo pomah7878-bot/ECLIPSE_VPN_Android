@@ -22,6 +22,7 @@ composeBom = "2026.06.01"
 reorderable = "3.1.0"
 coil = "2.7.0"
 browser = "1.9.0"
+sentry = "8.24.0"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
@@ -60,6 +61,7 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
+sentry-android = { module = "io.sentry:sentry-android", version.ref = "sentry" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }

@@ -11,6 +11,7 @@ import com.v2ray.ang.handler.AutoUpdateManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.compose.ThemeManager
+import io.sentry.android.core.SentryAndroid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,6 +41,8 @@ class AngApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        initSentry()
+
         MmkvManager.initialize(this)
 
         AppLocaleManager.initialize(this)
@@ -65,4 +68,27 @@ class AngApplication : Application() {
     /** Собственный scope приложения — Application не имеет встроенного
      * CoroutineScope в отличие от ViewModel, живёт весь процесс приложения. */
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * Инициализирует Sentry, если задан DSN (BuildConfig.SENTRY_DSN,
+     * подставляется из local.properties — см. app/build.gradle.kts).
+     * Без DSN ничего не делает, чтобы сборка без ключа не падала и не
+     * пыталась слать данные в никуда.
+     */
+    private fun initSentry() {
+        if (BuildConfig.SENTRY_DSN.isBlank()) return
+
+        SentryAndroid.init(this) { options ->
+            options.dsn = BuildConfig.SENTRY_DSN
+            options.environment = if (BuildConfig.DEBUG) "debug" else "release"
+            options.release = "${BuildConfig.APPLICATION_ID}@${BuildConfig.VERSION_NAME}+${BuildConfig.VERSION_CODE}"
+            // Не собирать PII (email/IP пользователя и т.п.) по умолчанию —
+            // для VPN-приложения особенно важно не утекать чувствительными
+            // данными в стороннюю систему.
+            options.isSendDefaultPii = false
+            // Трейсинг производительности не нужен для краш-репортинга,
+            // и лишняя телеметрия — тоже не то, что хочется от VPN-клиента.
+            options.tracesSampleRate = 0.0
+        }
+    }
 }
