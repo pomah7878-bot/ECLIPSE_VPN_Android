@@ -94,6 +94,8 @@ jobs:
         encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
 
     - name: Build APK
+      env:
+        SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       run: |
         cd ${{ github.workspace }}/V2rayNG
         echo "sdk.dir=${ANDROID_HOME}" > local.properties
