@@ -137,9 +137,22 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    # Публикуем автоматически на каждый push в master (чтобы сайт скачивания
+    # eclipse.unlimited.bot.nu/app всегда отдавал актуальную сборку через
+    # /releases/latest), а также по-прежнему поддерживаем ручной запуск с
+    # конкретным тегом через workflow_dispatch.
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
 
     steps:
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
+            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=auto-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download APK artifacts
         uses: actions/download-artifact@v8
         with:
@@ -159,7 +172,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           file: release-files/*.apk
-          tag: ${{ inputs.release_tag }}
+          tag: ${{ steps.tag.outputs.tag }}
           file_glob: true
           overwrite: true
           body: |
