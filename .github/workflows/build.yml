@@ -144,13 +144,23 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Determine release tag
         id: tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
             echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=auto-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            # Тег = реальная версия приложения (versionName из build.gradle.kts),
+            # а не номер прогона CI — иначе вместо привычных "1.20.0" на GitHub
+            # плодятся релизы вида "auto-215", "auto-216" на каждый коммит.
+            # Пока versionName не меняется, релиз с этим тегом просто
+            # обновляется (overwrite: true ниже) — новый релиз появляется
+            # только при реальном бампе версии.
+            VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' V2rayNG/app/build.gradle.kts)
+            echo "tag=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Download APK artifacts
