@@ -8,4 +8,12 @@
                 tools:ignore="AcceptsUserCertificates" />
         </trust-anchors>
     </base-config>
+    <!-- API магазина ECLIPSE: только HTTPS и только системные сертификаты
+         (пользовательские CA и открытый HTTP для этого домена не допускаются). -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">eclipse.unlimited.bot.nu</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>

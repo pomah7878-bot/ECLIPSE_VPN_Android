@@ -1,6 +1,7 @@
 package com.v2ray.ang.util
 
 import com.google.gson.Gson
+import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.handler.MmkvManager
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit
 private const val SHOP_HOST = "eclipse.unlimited.bot.nu"
 private const val PREF_SESSION_VALUE = "shop_session_cookie_value"
 private const val PREF_SESSION_EXPIRES = "shop_session_cookie_expires_ms"
+private const val PREF_OAUTH_VERIFIER = "shop_oauth_pkce_verifier"
 
 /**
  * Хранилище cookie для сессии магазина. Сессия персистентна между
@@ -176,10 +178,12 @@ object ShopApiClient {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
+                val builder = chain.request().newBuilder()
                     .header("X-Eclipse-App", "1")
-                    .build()
-                chain.proceed(request)
+                if (BuildConfig.APP_CLIENT_SECRET.isNotBlank()) {
+                    builder.header("X-Eclipse-App-Key", BuildConfig.APP_CLIENT_SECRET)
+                }
+                chain.proceed(builder.build())
             }
             .build()
     }
@@ -192,7 +196,31 @@ object ShopApiClient {
     /** URL для запуска OAuth-входа в Custom Tabs — ?client=app просит
      * сервер в конце вернуть код обмена через deep-link вместо cookie. */
     fun oauthStartUrl(provider: String): String {
-        return "$BASE_URL/auth/$provider/start?client=app"
+        // PKCE: verifier хранится у приложения (переживает перезапуск процесса во время
+        // входа в браузере), на сервер уходит только его SHA-256 — перехваченный
+        // другим приложением код обмена без verifier бесполезен.
+        val verifier = generatePkceVerifier()
+        MmkvManager.encodeSettings(PREF_OAUTH_VERIFIER, verifier)
+        val challenge = pkceChallenge(verifier)
+        return "$BASE_URL/auth/$provider/start?client=app&code_challenge=$challenge"
+    }
+
+    private fun generatePkceVerifier(): String {
+        val bytes = ByteArray(32)
+        java.security.SecureRandom().nextBytes(bytes)
+        return android.util.Base64.encodeToString(
+            bytes,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP
+        )
+    }
+
+    private fun pkceChallenge(verifier: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(verifier.toByteArray(Charsets.US_ASCII))
+        return android.util.Base64.encodeToString(
+            digest,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP
+        )
     }
 
     /**
@@ -324,7 +352,11 @@ object ShopApiClient {
      */
     suspend fun oauthExchange(code: String): Result<OAuthExchangeResponse> = withContext(Dispatchers.IO) {
         try {
-            val body = gson.toJson(mapOf("code" to code)).toRequestBody(JSON_MEDIA_TYPE)
+            val verifier = MmkvManager.decodeSettingsString(PREF_OAUTH_VERIFIER).orEmpty()
+            val payload = mutableMapOf("code" to code)
+            if (verifier.isNotBlank()) payload["code_verifier"] = verifier
+            val body = gson.toJson(payload).toRequestBody(JSON_MEDIA_TYPE)
+            MmkvManager.encodeSettings(PREF_OAUTH_VERIFIER, "")
             val request = Request.Builder()
                 .url("$BASE_URL/api/public/account/oauth-exchange")
                 .post(body)

@@ -99,6 +99,7 @@ jobs:
     - name: Build APK
       env:
         SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        APP_CLIENT_SECRET: ${{ secrets.APP_CLIENT_SECRET }}
       run: |
         cd ${{ github.workspace }}/V2rayNG
         echo "sdk.dir=${ANDROID_HOME}" > local.properties

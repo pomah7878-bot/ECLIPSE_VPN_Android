@@ -24,6 +24,11 @@ val localProperties = Properties().apply {
 val sentryDsn: String =
     (localProperties.getProperty("SENTRY_DSN") ?: System.getenv("SENTRY_DSN") ?: "")
 
+// Секрет приложения для сервера магазина (заголовок X-Eclipse-App-Key): из
+// local.properties или переменной окружения APP_CLIENT_SECRET (для CI). Пусто — заголовок не шлётся.
+val appClientSecret: String =
+    (localProperties.getProperty("APP_CLIENT_SECRET") ?: System.getenv("APP_CLIENT_SECRET") ?: "")
+
 android {
     namespace = "com.v2ray.ang"
     compileSdk = 37
@@ -32,10 +37,11 @@ android {
         applicationId = "com.eclipse.unlimited"
         minSdk = 24
         targetSdk = 37
-        versionCode = 745
-        versionName = "1.20.0"
+        versionCode = 746
+        versionName = "1.21.0"
 
         buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
+        buildConfigField("String", "APP_CLIENT_SECRET", "\"$appClientSecret\"")
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {
