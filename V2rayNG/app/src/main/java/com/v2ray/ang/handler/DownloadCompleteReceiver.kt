@@ -42,7 +42,15 @@ class DownloadCompleteReceiver : BroadcastReceiver() {
                     val reason = if (reasonIndex >= 0) cursor.getInt(reasonIndex) else -1
                     when (status) {
                         DownloadManager.STATUS_SUCCESSFUL -> {
-                            AutoUpdateManager.showInstallNotification(context, fileName, version)
+                            val installNow = MmkvManager.decodeSettingsBool(
+                                AutoUpdateManager.PREF_PENDING_INSTALL_NOW, false
+                            )
+                            MmkvManager.encodeSettings(AutoUpdateManager.PREF_PENDING_INSTALL_NOW, false)
+                            // Если пользователь сам ждёт — сразу открываем установщик;
+                            // если система не дала (приложение в фоне) — уведомление.
+                            if (!(installNow && AutoUpdateManager.launchInstall(context, fileName))) {
+                                AutoUpdateManager.showInstallNotification(context, fileName, version)
+                            }
                         }
                         DownloadManager.STATUS_FAILED -> {
                             LogUtil.e(

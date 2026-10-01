@@ -39,6 +39,9 @@ object AutoUpdateManager {
     const val PREF_PENDING_DOWNLOAD_ID = "auto_update_pending_download_id"
     const val PREF_PENDING_FILENAME = "auto_update_pending_filename"
     const val PREF_PENDING_VERSION = "auto_update_pending_version"
+    // 1: пользователь сам нажал «Обновить» и ждёт — по окончании загрузки
+    // сразу открываем установщик, без перехода в «Загрузки» и без уведомления
+    const val PREF_PENDING_INSTALL_NOW = "auto_update_pending_install_now"
 
     /**
      * Проверяет, пора ли делать очередную проверку обновления (не чаще
@@ -64,7 +67,16 @@ object AutoUpdateManager {
         }
     }
 
-    private suspend fun downloadUpdate(context: Context, url: String, version: String) {
+    /** Ручное обновление по кнопке: скачать внутри приложения и сразу открыть установщик. */
+    fun startManualUpdate(context: Context, url: String, version: String) {
+        MmkvManager.encodeSettings(PREF_PENDING_INSTALL_NOW, true)
+        val started = downloadUpdate(context, url, version)
+        if (!started) {
+            MmkvManager.encodeSettings(PREF_PENDING_INSTALL_NOW, false)
+        }
+    }
+
+    private fun downloadUpdate(context: Context, url: String, version: String): Boolean {
         // Без этого разрешения APK скачается, но экран установки будет
         // мгновенно самозакрываться без показа UI — направляем пользователя
         // напрямую в нужный системный экран для нашего приложения.
@@ -80,14 +92,14 @@ object AutoUpdateManager {
             } catch (e: Exception) {
                 LogUtil.e("AutoUpdateManager", "open install permission settings failed", e)
             }
-            return
+            return false
         }
 
         val fileName = "ECLIPSE_VPN_update_${version.ifBlank { "latest" }}.apk"
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
         if (downloadManager == null) {
             LogUtil.e("AutoUpdateManager", "DownloadManager unavailable", Exception("DownloadManager is null"))
-            return
+            return false
         }
 
         try {
@@ -105,8 +117,34 @@ object AutoUpdateManager {
             MmkvManager.encodeSettings(PREF_PENDING_DOWNLOAD_ID, downloadId)
             MmkvManager.encodeSettings(PREF_PENDING_FILENAME, fileName)
             MmkvManager.encodeSettings(PREF_PENDING_VERSION, version)
+            return true
         } catch (e: Exception) {
             LogUtil.e("AutoUpdateManager", "download enqueue failed", e)
+            return false
+        }
+    }
+
+    /** Открывает системный установщик для скачанного APK. true — экран установки запущен. */
+    fun launchInstall(context: Context, fileName: String): Boolean {
+        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
+        if (!file.exists()) return false
+        return try {
+            val apkUri = FileProvider.getUriForFile(
+                context,
+                context.packageName + FILE_PROVIDER_AUTHORITY_SUFFIX,
+                file,
+            )
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(apkUri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            )
+            true
+        } catch (e: Exception) {
+            LogUtil.e("AutoUpdateManager", "launchInstall failed", e)
+            false
         }
     }
 

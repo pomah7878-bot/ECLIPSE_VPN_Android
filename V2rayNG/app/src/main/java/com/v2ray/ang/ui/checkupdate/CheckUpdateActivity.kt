@@ -116,7 +116,16 @@ fun CheckUpdateScreen(
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.dismissUpdateDialog()
-                    result.downloadUrl?.let { Utils.openUri(context, it) }
+                    val url = result.downloadUrl
+                    if (!url.isNullOrBlank()) {
+                        android.widget.Toast.makeText(
+                            context, "Загрузка обновления… установка начнётся автоматически",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        com.v2ray.ang.handler.AutoUpdateManager.startManualUpdate(
+                            context, url, result.latestVersion ?: ""
+                        )
+                    }
                 }) {
                     Text(stringResource(R.string.update_now))
                 }
