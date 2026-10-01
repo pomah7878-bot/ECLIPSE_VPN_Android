@@ -63,6 +63,11 @@ class AngApplication : Application() {
         applicationScope.launch {
             AutoUpdateManager.checkAndDownloadIfNeeded(this@AngApplication)
         }
+        // ECLIPSE: геофайлы и маршрутизация из репозитория eclipse-routing
+        // (раз в сутки, а до первого успеха — раз в час при запуске).
+        applicationScope.launch {
+            com.v2ray.ang.handler.EclipseRoutingSync.syncIfNeeded(this@AngApplication)
+        }
     }
 
     /** Собственный scope приложения — Application не имеет встроенного

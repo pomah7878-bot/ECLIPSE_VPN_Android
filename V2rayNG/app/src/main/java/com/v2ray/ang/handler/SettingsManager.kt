@@ -64,7 +64,12 @@ object SettingsManager {
      * @return A mutable list of RulesetItem.
      */
     private fun getPresetRoutingRulesets(context: Context, type: RoutingType = RoutingType.WHITE_RUSSIA): MutableList<RulesetItem>? {
-        val assets = Utils.readTextFromAssets(context, type.fileName)
+        // ECLIPSE: пока работаем на компактных геофайлах из репозитория ECLIPSE, российский
+        // пресет берётся из набора, где есть только их метки (иначе ядро не запустится).
+        val presetFile = if (type == RoutingType.WHITE_RUSSIA &&
+            MmkvManager.decodeSettingsBool(EclipseRoutingSync.PREF_ACTIVE, false)
+        ) "custom_routing_eclipse" else type.fileName
+        val assets = Utils.readTextFromAssets(context, presetFile)
         if (TextUtils.isEmpty(assets)) {
             return null
         }

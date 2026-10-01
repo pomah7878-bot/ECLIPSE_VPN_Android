@@ -161,6 +161,9 @@ object AppConfig {
     const val GEOSITE_DAT = "geosite.dat"
     const val GEOIP_DAT = "geoip.dat"
     const val GEOIP_ONLY_CN_PRIVATE_DAT = "geoip-only-cn-private.dat"
+    /** ECLIPSE: собственный репозиторий геофайлов и маршрутизации. */
+    const val ECLIPSE_ROUTING_SOURCE = "pomah7878-bot/eclipse-routing"
+    const val ECLIPSE_ROUTING_RAW_URL = "$GITHUB_RAW_URL/pomah7878-bot/eclipse-routing/main/geo/"
     const val GEOIP_ONLY_CN_PRIVATE_URL = "$GITHUB_RAW_URL/Loyalsoldier/geoip/release/$GEOIP_ONLY_CN_PRIVATE_DAT"
 
     /** Ports and addresses for various services. */
@@ -335,6 +338,7 @@ object AppConfig {
     )
 
     val GEO_FILES_SOURCES = arrayListOf(
+        ECLIPSE_ROUTING_SOURCE,
         "Loyalsoldier/v2ray-rules-dat",
         "runetfreedom/russia-v2ray-rules-dat",
         "Chocolate4U/Iran-v2ray-rules"

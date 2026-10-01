@@ -1,0 +1,11 @@
+[
+  {"remarks": "Bypass bittorrent", "outboundTag": "direct", "protocol": ["bittorrent"]},
+  {"remarks": "Block udp443", "outboundTag": "block", "port": "443", "network": "udp"},
+  {"remarks": "ECLIPSE block domains", "outboundTag": "block", "domain": ["geosite:win-spy", "geosite:torrent", "geosite:category-ads"]},
+  {"remarks": "Direct LAN IP", "outboundTag": "direct", "ip": ["geoip:private"]},
+  {"remarks": "Direct LAN domains", "outboundTag": "direct", "domain": ["geosite:private"]},
+  {"remarks": "ECLIPSE proxy domains", "outboundTag": "proxy", "domain": ["geosite:google-play", "geosite:google-deepmind", "geosite:github", "geosite:twitch-ads", "geosite:youtube", "geosite:telegram", "geosite:discord", "geosite:ai", "geosite:category-geoblock-ru"]},
+  {"remarks": "ECLIPSE proxy IP", "outboundTag": "proxy", "ip": ["geoip:telegram", "geoip:discord"]},
+  {"remarks": "ECLIPSE direct domains", "outboundTag": "direct", "domain": ["geosite:category-ru", "geosite:whitelist", "geosite:microsoft", "geosite:apple", "geosite:epicgames", "geosite:riot", "geosite:escapefromtarkov", "geosite:steam", "geosite:origin", "geosite:twitch", "geosite:pinterest", "geosite:faceit"]},
+  {"remarks": "ECLIPSE direct IP", "outboundTag": "direct", "ip": ["geoip:direct"]}
+]

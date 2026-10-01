@@ -62,7 +62,11 @@ class UserAssetViewModel(application: Application) : BaseViewModel(application) 
                     Utils.getUuid(),
                     AssetUrlItem(
                         it,
-                        String.format(AppConfig.GITHUB_DOWNLOAD_URL, geoFilesSource).concatUrl(it),
+                        if (geoFilesSource == AppConfig.ECLIPSE_ROUTING_SOURCE) {
+                            AppConfig.ECLIPSE_ROUTING_RAW_URL + it
+                        } else {
+                            String.format(AppConfig.GITHUB_DOWNLOAD_URL, geoFilesSource).concatUrl(it)
+                        },
                         locked = true
                     )
                 )
