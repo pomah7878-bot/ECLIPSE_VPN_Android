@@ -11,6 +11,7 @@ import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseViewModel
 import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
@@ -49,7 +50,7 @@ class UserAssetViewModel(application: Application) : BaseViewModel(application) 
         }.also { reloadJob = it }
     }
 
-    internal fun buildAssetList(
+    private fun buildAssetList(
         decodedAssets: List<AssetUrlCache>?,
         geoFilesSource: String
     ): List<AssetUrlCache> {
@@ -58,8 +59,7 @@ class UserAssetViewModel(application: Application) : BaseViewModel(application) 
             .filter { geoFile -> savedAssets.none { it.assetUrl.remarks == geoFile } }
             .map {
                 AssetUrlCache(
-                    // Built-in rows have no persisted GUID; keep their UI identity across reloads.
-                    "builtin:$it",
+                    Utils.getUuid(),
                     AssetUrlItem(
                         it,
                         if (geoFilesSource == AppConfig.ECLIPSE_ROUTING_SOURCE) {

@@ -1,22 +1,9 @@
 package com.v2ray.ang.ui.main
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.res.stringResource
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
-
-data class ServerDeleteTarget(
-    val guid: String,
-    val profileName: String,
-) {
-    companion object {
-        val Saver = listSaver<ServerDeleteTarget?, String>(
-            save = { target -> target?.let { listOf(it.guid, it.profileName) }.orEmpty() },
-            restore = { ServerDeleteTarget(it[0], it[1]) },
-        )
-    }
-}
 
 @Composable
 fun MainDialogs(
@@ -29,7 +16,7 @@ fun MainDialogs(
     showDelInvalidConfirm: Boolean,
     onDismissDelInvalid: () -> Unit,
     onConfirmDelInvalid: () -> Unit,
-    showRemoveConfirm: ServerDeleteTarget?,
+    showRemoveConfirm: String?,
     onDismissRemove: () -> Unit,
     onConfirmRemove: (String) -> Unit,
 ) {
@@ -54,11 +41,11 @@ fun MainDialogs(
             onDismiss = onDismissDelInvalid
         )
     }
-    showRemoveConfirm?.let { target ->
+    if (showRemoveConfirm != null) {
+        val guid = showRemoveConfirm
         DeleteConfirmDialog(
             message = stringResource(R.string.confirm_delete_profile),
-            itemName = target.profileName,
-            onConfirm = { onConfirmRemove(target.guid) },
+            onConfirm = { onConfirmRemove(guid) },
             onDismiss = onDismissRemove
         )
     }

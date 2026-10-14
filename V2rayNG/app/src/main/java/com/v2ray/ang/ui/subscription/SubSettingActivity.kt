@@ -1,6 +1,7 @@
 package com.v2ray.ang.ui.subscription
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
@@ -46,12 +47,14 @@ import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.ItemDivider
-import com.v2ray.ang.ui.compose.NavigationBarsBottomPadding
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.ui.compose.ReorderableListItem
 import com.v2ray.ang.ui.compose.SelectListDialog
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
+import com.v2ray.ang.ui.compose.colorFabActive
+import com.v2ray.ang.ui.compose.NavigationBarsBottomPadding
 import com.v2ray.ang.ui.compose.verticalScrollbar
+import com.v2ray.ang.util.QRCodeDecoder
 import com.v2ray.ang.util.Utils
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -60,8 +63,6 @@ private enum class SubscriptionShareAction(@StringRes val labelRes: Int) {
     QRCode(R.string.share_subscription_qrcode),
     Clipboard(R.string.share_subscription_clipboard)
 }
-
-private data class SubscriptionDeleteTarget(val guid: String, val name: String)
 
 class SubSettingActivity : BaseComponentActivity() {
     private val viewModel: SubscriptionsViewModel by viewModels()
@@ -83,7 +84,7 @@ class SubSettingActivity : BaseComponentActivity() {
                 startActivity(Intent(this, SubEditActivity::class.java).putExtra("subId", subId))
             },
             onRemoveSub = { subId -> removeSub(subId) },
-            onShareQRCode = viewModel::shareQRCode,
+            onShareQRCode = { url -> QRCodeDecoder.createQRCode(url) },
             onShareClipboard = { url ->
                 Utils.setClipboard(this, url)
                 toast(getString(R.string.toast_success))
@@ -110,16 +111,16 @@ fun SubSettingScreen(
     onSubUpdate: () -> Unit,
     onEditSub: (String) -> Unit,
     onRemoveSub: (String) -> Unit,
-    onShareQRCode: (String) -> Unit,
+    onShareQRCode: (String) -> Bitmap?,
     onShareClipboard: (String) -> Unit
 ) {
     val subscriptions by viewModel.subsFlow.collectAsStateWithLifecycle()
     var showUpdateDialog by remember { mutableStateOf(false) }
-    var removeTarget by remember { mutableStateOf<SubscriptionDeleteTarget?>(null) }
+    var removeTarget by remember { mutableStateOf<String?>(null) }
     val confirmRemove = MmkvManager.decodeSettingsBool(AppConfig.PREF_CONFIRM_REMOVE, false)
 
     var shareTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
-    val qrCodeBitmap by viewModel.qrCode.collectAsStateWithLifecycle()
+    var showQRCodeBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     val lazyListState = rememberLazyListState()
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -214,7 +215,7 @@ fun SubSettingScreen(
                                         )
                                     }
                                     IconButton(onClick = {
-                                        if (confirmRemove) removeTarget = SubscriptionDeleteTarget(subCache.guid, subCache.subscription.remarks)
+                                        if (confirmRemove) removeTarget = subCache.guid
                                         else onRemoveSub(subCache.guid)
                                     }) {
                                         Icon(
@@ -254,7 +255,7 @@ fun SubSettingScreen(
             onSelected = { action ->
                 shareTarget = null
                 when (action) {
-                    SubscriptionShareAction.QRCode -> onShareQRCode(url)
+                    SubscriptionShareAction.QRCode -> showQRCodeBitmap = onShareQRCode(url)
                     SubscriptionShareAction.Clipboard -> onShareClipboard(url)
                 }
             },
@@ -263,20 +264,19 @@ fun SubSettingScreen(
     }
 
     // QR Code Dialog
-    if (qrCodeBitmap != null) {
+    if (showQRCodeBitmap != null) {
         QRCodeDialog(
-            bitmap = qrCodeBitmap,
-            onDismiss = viewModel::dismissQRCode
+            bitmap = showQRCodeBitmap,
+            onDismiss = { showQRCodeBitmap = null }
         )
     }
 
-    removeTarget?.let { target ->
+    if (removeTarget != null) {
         DeleteConfirmDialog(
             message = stringResource(R.string.confirm_delete_subscription_group),
-            itemName = target.name,
             onConfirm = {
+                onRemoveSub(removeTarget!!)
                 removeTarget = null
-                onRemoveSub(target.guid)
             },
             onDismiss = { removeTarget = null }
         )

@@ -37,6 +37,7 @@ import com.v2ray.ang.AppConfig.TAG_PROXY
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.RulesetItem
 import com.v2ray.ang.extension.nullIfBlank
+import com.v2ray.ang.extension.toast
 import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.apppicker.AppPickerActivity
@@ -85,6 +86,7 @@ class RoutingEditActivity : BaseComponentActivity() {
 
     private fun saveServer(rulesetItem: RulesetItem): Boolean {
         if (rulesetItem.remarks.isNullOrEmpty()) {
+            toast(R.string.sub_setting_remarks)
             return false
         }
         if (position < 0 && rulesetItem.id.isEmpty()) {
@@ -122,7 +124,6 @@ fun RoutingEditScreen(
     val scrollState = rememberScrollState()
 
     var remarks by rememberSaveable { mutableStateOf(initial?.remarks ?: "") }
-    var isRemarksError by rememberSaveable { mutableStateOf(false) }
     var locked by rememberSaveable { mutableStateOf(initial?.locked == true) }
     var domain by rememberSaveable { mutableStateOf(initial?.domain?.joinToString(",") ?: "") }
     var ip by rememberSaveable { mutableStateOf(initial?.ip?.joinToString(",") ?: "") }
@@ -192,15 +193,7 @@ fun RoutingEditScreen(
                             )
                         }
                     }
-                    IconButton(onClick = {
-                        val remarksErr = remarks.isBlank()
-                        isRemarksError = remarksErr
-
-                        val hasError = remarksErr
-                        if (!hasError) {
-                            onSave(buildRuleset())
-                        }
-                    }) {
+                    IconButton(onClick = { onSave(buildRuleset()) }) {
                         Icon(
                             painterResource(R.drawable.ic_fab_check),
                             contentDescription = stringResource(R.string.acc_save)
@@ -223,8 +216,7 @@ fun RoutingEditScreen(
             FormTextField(
                 label = stringResource(R.string.sub_setting_remarks),
                 value = remarks,
-                onValueChange = { remarks = it },
-                isError = isRemarksError
+                onValueChange = { remarks = it }
             )
             SettingsSwitchItem(
                 title = stringResource(R.string.routing_settings_locked),
@@ -317,7 +309,6 @@ fun RoutingEditScreen(
         if (showDeleteConfirm) {
             DeleteConfirmDialog(
                 message = stringResource(R.string.confirm_delete_routing_rule),
-                itemName = initial?.remarks.orEmpty(),
                 onConfirm = onDelete,
                 onDismiss = { showDeleteConfirm = false }
             )
