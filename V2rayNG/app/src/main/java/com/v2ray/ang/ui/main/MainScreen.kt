@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -35,7 +36,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.ui.compose.LocalDarkTheme
 import com.v2ray.ang.ui.compose.QRCodeDialog
-import com.v2ray.ang.extension.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -64,11 +64,17 @@ fun MainScreen(
     var showDelAllConfirm by remember { mutableStateOf(false) }
     var showDelDuplicateConfirm by remember { mutableStateOf(false) }
     var showDelInvalidConfirm by remember { mutableStateOf(false) }
-    var showRemoveConfirm by remember { mutableStateOf<String?>(null) }
+    var showRemoveConfirm by rememberSaveable(stateSaver = ServerDeleteTarget.Saver) {
+        mutableStateOf<ServerDeleteTarget?>(null)
+    }
 
     var shareTarget by remember { mutableStateOf<Triple<String, ProfileItem, Boolean>?>(null) }
-    val removeServer: (String) -> Unit = { guid ->
-        if (confirmRemove) showRemoveConfirm = guid else onAction(MainAction.RemoveServer(guid))
+    val removeServer: (String, String) -> Unit = { guid, profileName ->
+        if (confirmRemove) {
+            showRemoveConfirm = ServerDeleteTarget(guid, profileName)
+        } else {
+            onAction(MainAction.RemoveServer(guid))
+        }
     }
 
     val pagerState = rememberPagerState(
@@ -79,15 +85,11 @@ fun MainScreen(
     val lazyListStates = remember { mutableStateMapOf<String, LazyListState>() }
     val lazyGridStates = remember { mutableStateMapOf<String, LazyGridState>() }
 
-    var locateInProgress by remember { mutableStateOf(false) }
-
     LaunchedEffect(groups) {
         val validGroupIds = groups.map { it.id }.toSet()
         lazyListStates.keys.retainAll(validGroupIds)
         lazyGridStates.keys.retainAll(validGroupIds)
     }
-
-    val latestDoubleColumnDisplay by rememberUpdatedState(doubleColumnDisplay)
 
     LaunchedEffect(groups, uiState.selectedGroupId) {
         if (groups.isEmpty()) return@LaunchedEffect
@@ -99,66 +101,16 @@ fun MainScreen(
     }
 
     val latestGroups by rememberUpdatedState(groups)
-    val latestLocateInProgress by rememberUpdatedState(locateInProgress)
 
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }
             .distinctUntilChanged()
             .collect { page ->
                 val currentGroups = latestGroups
-                if (!latestLocateInProgress && page in currentGroups.indices) {
+                if (page in currentGroups.indices) {
                     onAction(MainAction.SelectGroup(currentGroups[page].id))
                 }
             }
-    }
-
-    LaunchedEffect(uiState.locateTarget) {
-        val target = uiState.locateTarget ?: return@LaunchedEffect
-        if (target.groupIndex !in 0 until pagerState.pageCount) {
-            mainViewModel.onAction(MainAction.LocateHandled(target))
-            return@LaunchedEffect
-        }
-
-        locateInProgress = true
-        try {
-            if (pagerState.settledPage != target.groupIndex) {
-                pagerState.navigateToPageOptimized(
-                    targetPage = target.groupIndex,
-                    animateAdjacentPage = false
-                )
-            }
-            onAction(MainAction.SelectGroup(target.groupId))
-
-            repeat(10) {
-                val ready = if (latestDoubleColumnDisplay) {
-                    lazyGridStates[target.groupId] != null
-                } else {
-                    lazyListStates[target.groupId] != null
-                }
-                if (ready) return@repeat
-                delay(16)
-            }
-
-            if (latestDoubleColumnDisplay) {
-                lazyGridStates[target.groupId]?.let { gridState ->
-                    gridState.scrollToItem(
-                        index = target.itemPosition,
-                        scrollOffset = -gridState.layoutInfo.viewportSize.height / 3
-                    )
-                }
-            } else {
-                lazyListStates[target.groupId]?.let { listState ->
-                    listState.scrollToItem(
-                        index = target.itemPosition,
-                        scrollOffset = -listState.layoutInfo.viewportSize.height / 3
-                    )
-                }
-            }
-        } finally {
-            delay(32)
-            locateInProgress = false
-            mainViewModel.onAction(MainAction.LocateHandled(target))
-        }
     }
 
     MainDialogs(
@@ -322,8 +274,8 @@ fun MainScreen(
                             groupId = group.id,
                             mainViewModel = mainViewModel,
                             selectedGuid = selectedGuid,
+                            locateTarget = uiState.locateTarget,
                             doubleColumnDisplay = doubleColumnDisplay,
-                            confirmRemove = confirmRemove,
                             searchQuery = searchQuery,
                             lazyListStates = lazyListStates,
                             lazyGridStates = lazyGridStates,
