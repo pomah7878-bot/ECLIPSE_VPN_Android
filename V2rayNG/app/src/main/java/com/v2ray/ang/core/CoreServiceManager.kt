@@ -18,7 +18,6 @@ import com.v2ray.ang.dto.ConnectionTestResult
 import com.v2ray.ang.dto.OutboundTrafficStat
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.BrowserDialerMode
-import com.v2ray.ang.extension.delay
 import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.NotificationManager
@@ -31,15 +30,11 @@ import com.v2ray.ang.service.NetworkMonitor
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelChildren
-import kotlinx.coroutines.ensureActive
+import com.v2ray.ang.extension.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 import libv2ray.ProcessFinder
@@ -54,7 +49,6 @@ object CoreServiceManager {
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
     private var networkMonitor: NetworkMonitor? = null
-    private val connectionTestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // ECLIPSE: авто-переподключение на альтернативный сервер при "тихом"
     // сбое — туннель формально работает (сервис не падает), но реальный
@@ -213,7 +207,6 @@ object CoreServiceManager {
      * @return True if the core was stopped successfully, false otherwise.
      */
     fun stopCoreLoop(): Boolean {
-        connectionTestScope.coroutineContext.cancelChildren()
         val service = getService() ?: return false
 
         networkMonitor?.unregister()
@@ -366,7 +359,6 @@ object CoreServiceManager {
             val tunFd = currentVpnInterface
 
             isReloading = true
-            connectionTestScope.coroutineContext.cancelChildren()
             LogUtil.i(AppConfig.TAG, "StartCore-Manager: Core reload start...")
 
             coreController.stopLoop()
@@ -421,15 +413,13 @@ object CoreServiceManager {
      * Tests with primary URL first, then falls back to alternative URL if needed.
      * Also fetches remote IP information if the delay test was successful.
      */
-    private fun measureV2rayDelay(requestId: String) {
-        val service = getService() ?: return
-        if (!isRunning() || isReloading) {
-            MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_CANCEL, "", requestId)
+    private fun measureV2rayDelay() {
+        if (!isRunning()) {
             return
         }
 
-        connectionTestScope.coroutineContext.cancelChildren()
-        connectionTestScope.launch {
+        CoroutineScope(Dispatchers.IO).launch {
+            val service = getService() ?: return@launch
             var time = -1L
             var errorStr = ""
 
@@ -440,7 +430,6 @@ object CoreServiceManager {
                 errorStr = e.message?.substringAfter("\":").orEmpty()
             }
             if (time == -1L) {
-                ensureActive()
                 try {
                     time = coreController.measureDelay(SettingsManager.getDelayTestUrl(true))
                 } catch (e: Exception) {
@@ -449,24 +438,24 @@ object CoreServiceManager {
                 }
             }
 
-            ensureActive()
-            val endpoint = if (time >= 0) SpeedtestManager.getRemoteIPInfo() else null
             val result = ConnectionTestResult(
                 delayMillis = time,
                 errorMessage = errorStr,
-                country = endpoint?.country,
-                ipAddress = endpoint?.ipAddress,
             )
-            withContext(Dispatchers.Main.immediate) {
-                if (isRunning()) {
-                    MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_RESULT, result, requestId)
-                } else {
-                    MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_CANCEL, "", requestId)
+            MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_RESULT, result)
+
+            // Only fetch IP info if the delay test was successful
+            if (time >= 0) {
+                SpeedtestManager.getRemoteIPInfo()?.let { ip ->
+                    MessageHelper.sendMsg2UI(
+                        service,
+                        AppConfig.MSG_MEASURE_DELAY_RESULT,
+                        result.copy(
+                            country = ip.country,
+                            ipAddress = ip.ipAddress,
+                        ),
+                    )
                 }
-            }
-        }.invokeOnCompletion { cause ->
-            if (cause is CancellationException) {
-                MessageHelper.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_CANCEL, "", requestId)
             }
         }
     }
@@ -605,8 +594,7 @@ object CoreServiceManager {
                 }
 
                 AppConfig.MSG_MEASURE_DELAY -> {
-                    if (isOrderedBroadcast) resultCode = Activity.RESULT_OK
-                    measureV2rayDelay(intent.getStringExtra("content").orEmpty())
+                    measureV2rayDelay()
                 }
             }
 

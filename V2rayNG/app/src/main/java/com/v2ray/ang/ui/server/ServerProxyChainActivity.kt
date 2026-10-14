@@ -100,6 +100,7 @@ class ServerProxyChainActivity : BaseComponentActivity() {
         members: List<String>
     ): Boolean {
         if (remarks.isBlank()) {
+            toast(R.string.server_lab_remarks)
             return false
         }
 
@@ -199,11 +200,10 @@ fun ProxyChainScreen(
     onDelete: () -> Unit
 ) {
     var remarks by rememberSaveable { mutableStateOf(initialRemarks) }
-    var isRemarksError by rememberSaveable { mutableStateOf(false) }
     var members by rememberSaveable { mutableStateOf(initialMembers) }
     var memberKeys by rememberSaveable { mutableStateOf(List(initialMembers.size) { UUID.randomUUID().toString() }) }
     var showProfileDeleteConfirm by remember { mutableStateOf(false) }
-    var memberToDeleteKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var memberToDeleteIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     val showDelete = editGuid.isNotEmpty() && !isRunning
 
     val lazyListState = rememberLazyListState()
@@ -233,15 +233,7 @@ fun ProxyChainScreen(
                             Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.acc_delete))
                         }
                     }
-                    IconButton(onClick = {
-                        val remarksErr = remarks.isBlank()
-                        isRemarksError = remarksErr
-
-                        val hasError = remarksErr
-                        if (!hasError) {
-                            onSave(remarks, members)
-                        }
-                    }) {
+                    IconButton(onClick = { onSave(remarks, members) }) {
                         Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.acc_save))
                     }
                 }
@@ -280,8 +272,7 @@ fun ProxyChainScreen(
                 FormTextField(
                     label = stringResource(R.string.server_lab_remarks),
                     value = remarks,
-                    onValueChange = { remarks = it },
-                    isError = isRemarksError
+                    onValueChange = { remarks = it }
                 )
             }
 
@@ -294,8 +285,7 @@ fun ProxyChainScreen(
             }
 
             itemsIndexed(items = members, key = { index, _ -> memberKeys[index] }) { index, member ->
-                val memberKey = memberKeys[index]
-                ReorderableItem(reorderableState, key = memberKey) { isDragging ->
+                ReorderableItem(reorderableState, key = memberKeys[index]) { isDragging ->
                     val elevation by animateDpAsState(if (isDragging) 4.dp else 0.dp)
                     Surface(shadowElevation = elevation) {
                         Row(
@@ -324,11 +314,10 @@ fun ProxyChainScreen(
                             )
                             IconButton(onClick = {
                                 if (member.isBlank()) {
-                                    val (remainingMembers, remainingKeys) = withoutProxyChainMember(members, memberKeys, memberKey)
-                                    members = remainingMembers
-                                    memberKeys = remainingKeys
+                                    members = members.toMutableList().also { it.removeAt(index) }
+                                    memberKeys = memberKeys.toMutableList().also { it.removeAt(index) }
                                 } else {
-                                    memberToDeleteKey = memberKey
+                                    memberToDeleteIndex = index
                                 }
                             }) {
                                 Icon(
@@ -346,22 +335,19 @@ fun ProxyChainScreen(
     if (showProfileDeleteConfirm) {
         DeleteConfirmDialog(
             message = stringResource(R.string.confirm_delete_profile),
-            itemName = initialRemarks,
             onConfirm = { showProfileDeleteConfirm = false; onDelete() },
             onDismiss = { showProfileDeleteConfirm = false }
         )
     }
-    memberToDeleteKey?.let { memberKey ->
+    memberToDeleteIndex?.let { index ->
         DeleteConfirmDialog(
             message = stringResource(R.string.confirm_delete_proxy_chain_member),
-            itemName = members.getOrNull(memberKeys.indexOf(memberKey)).orEmpty(),
             onConfirm = {
-                val (remainingMembers, remainingKeys) = withoutProxyChainMember(members, memberKeys, memberKey)
-                members = remainingMembers
-                memberKeys = remainingKeys
-                memberToDeleteKey = null
+                members = members.toMutableList().also { it.removeAt(index) }
+                memberKeys = memberKeys.toMutableList().also { it.removeAt(index) }
+                memberToDeleteIndex = null
             },
-            onDismiss = { memberToDeleteKey = null }
+            onDismiss = { memberToDeleteIndex = null }
         )
     }
 }

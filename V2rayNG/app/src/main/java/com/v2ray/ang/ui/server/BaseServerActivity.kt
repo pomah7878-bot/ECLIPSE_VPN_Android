@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -105,23 +106,20 @@ abstract class BaseServerActivity : BaseComponentActivity() {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FormTextField(
-                label = stringResource(R.string.server_lab_remarks),
-                value = state.remarks,
-                onValueChange = { state.remarks = it },
-                isError = state.isRemarksError
+                stringResource(R.string.server_lab_remarks),
+                state.remarks,
+                { state.remarks = it }
             )
             FormTextField(
-                label = stringResource(R.string.server_lab_address),
-                value = state.address,
-                onValueChange = { state.address = it },
-                isError = state.isAddressError
+                stringResource(R.string.server_lab_address),
+                state.address,
+                { state.address = it }
             )
             FormTextField(
-                label = stringResource(R.string.server_lab_port),
-                value = state.port,
-                onValueChange = { state.port = it },
-                keyboardType = KeyboardType.Number,
-                isError = state.isPortError
+                stringResource(R.string.server_lab_port),
+                state.port,
+                { state.port = it },
+                keyboardType = KeyboardType.Number
             )
         }
     }
@@ -368,27 +366,33 @@ abstract class BaseServerActivity : BaseComponentActivity() {
     }
 
     protected fun validateBasicConfig(state: ServerUiState): Boolean {
-        val remarksErr = state.remarks.isBlank()
-        val addressErr = state.address.isBlank()
-        val portErr = state.configType != EConfigType.HYSTERIA2 && (state.port.toIntOrNull() ?: 0) <= 0
-
-        state.isRemarksError = remarksErr
-        state.isAddressError = addressErr
-        state.isPortError = portErr
-
-        val hasError = remarksErr || addressErr || portErr
-        return !hasError
+        if (state.remarks.isBlank()) {
+            toast(R.string.server_lab_remarks)
+            return false
+        }
+        if (state.address.isBlank()) {
+            toast(R.string.server_lab_address)
+            return false
+        }
+        if (
+            state.configType != EConfigType.HYSTERIA2 &&
+            (state.port.toIntOrNull() ?: 0) <= 0
+        ) {
+            toast(R.string.server_lab_port)
+            return false
+        }
+        return true
     }
 
     protected open fun validateProtocolConfig(config: ProfileItem): Boolean = true
 
-    protected open fun validateCommonConfig(state: ServerUiState, config: ProfileItem): Boolean {
+    protected open fun validateCommonConfig(config: ProfileItem): Boolean {
 
         if (config.password.isNullOrBlank()) {
-            state.isPasswordError = true
             if (config.configType == EConfigType.VMESS ||
                 config.configType == EConfigType.VLESS
             ) {
+                toast(R.string.server_lab_id)
                 return false
             }
 
@@ -396,6 +400,7 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                 config.configType == EConfigType.SHADOWSOCKS ||
                 config.configType == EConfigType.HYSTERIA2
             ) {
+                toast(R.string.server_lab_id3)
                 return false
             }
         }
@@ -421,7 +426,7 @@ abstract class BaseServerActivity : BaseComponentActivity() {
     protected fun saveServer(state: ServerUiState): Boolean {
         if (!validateBasicConfig(state)) return false
         val config = state.toProfileItem(initialConfig)
-        if (!validateCommonConfig(state, config)) return false
+        if (!validateCommonConfig(config)) return false
         if (!validateProtocolConfig(config)) return false
 
         config.description = AngConfigManager.generateDescription(config)
@@ -487,7 +492,6 @@ abstract class BaseServerActivity : BaseComponentActivity() {
         if (showDeleteDialog) {
             DeleteConfirmDialog(
                 message = stringResource(R.string.confirm_delete_profile),
-                itemName = initialConfig.remarks,
                 onConfirm = {
                     showDeleteDialog = false
                     deleteServer(editGuid)

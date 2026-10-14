@@ -4,8 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
-import android.text.format.DateFormat
-import android.text.format.Formatter
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
@@ -36,8 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,6 +45,7 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.AssetUrlCache
 import com.v2ray.ang.dto.entities.AssetUrlItem
+import com.v2ray.ang.extension.toTrafficString
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.extension.toastError
 import com.v2ray.ang.extension.toastSuccess
@@ -59,8 +56,8 @@ import com.v2ray.ang.ui.compose.AppDropdownMenuItems
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.ItemDivider
-import com.v2ray.ang.ui.compose.NavigationBarsBottomPadding
 import com.v2ray.ang.ui.compose.SettingsListItem
+import com.v2ray.ang.ui.compose.NavigationBarsBottomPadding
 import com.v2ray.ang.ui.compose.verticalScrollbar
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -69,7 +66,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.text.SimpleDateFormat
+import java.text.DateFormat
 import java.util.Date
 
 private enum class AddAssetMenuAction(@StringRes val labelRes: Int) {
@@ -222,13 +219,7 @@ class UserAssetActivity : HelperBaseComponentActivity() {
                 viewModel.downloadGeoFiles(extDir, httpPort, proxyUsername, proxyPassword)
             }
             if (result.successCount > 0) {
-                toast(
-                    resources.getQuantityString(
-                        R.plurals.title_update_asset_count,
-                        result.successCount,
-                        result.successCount,
-                    )
-                )
+                toast(getString(R.string.title_update_asset_count, result.successCount))
             } else {
                 toast(getString(R.string.toast_failure))
             }
@@ -345,8 +336,7 @@ internal fun UserAssetScreen(
 
     deleteTarget?.let { asset ->
         DeleteConfirmDialog(
-            message = stringResource(R.string.confirm_delete_asset_file),
-            itemName = asset.name,
+            message = stringResource(R.string.confirm_delete_asset_file, asset.name),
             onConfirm = {
                 deleteTarget = null
                 onRemoveAsset(asset.guid, asset.name)
@@ -363,14 +353,11 @@ private fun UserAssetItem(
     onEdit: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val locale = LocalConfiguration.current.locales[0]
     val propertiesText = if (fileMetadata != null) {
-        val fileSize = Formatter.formatFileSize(context, fileMetadata.length)
-        val skeleton = if (DateFormat.is24HourFormat(context)) "yMMMdHm" else "yMMMdhm"
-        val formattedDate = SimpleDateFormat(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
-            .format(Date(fileMetadata.lastModified))
-        "$fileSize  •  $formattedDate"
+        remember(fileMetadata) {
+            val dateFormat = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM)
+            "${fileMetadata.length.toTrafficString()}  •  ${dateFormat.format(Date(fileMetadata.lastModified))}"
+        }
     } else {
         stringResource(R.string.msg_file_not_found)
     }

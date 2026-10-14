@@ -2,7 +2,6 @@ package com.v2ray.ang.root
 
 import android.content.Context
 import android.os.Process
-import android.util.AtomicFile
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
@@ -113,24 +112,14 @@ object RootProxyManager {
         val socksUsername = SettingsManager.getSocksUsername()
         val socksPassword = SettingsManager.getSocksPassword()
         val port = SettingsManager.getSocksPort()
-        val runDir = File(context.filesDir, AppConfig.ROOT_RUNTIME_DIR)
-        if (!runDir.isDirectory && !runDir.mkdirs()) {
-            LogUtil.e(AppConfig.TAG, "RootProxyManager: failed to create runtime directory at ${runDir.absolutePath}")
-            return null
-        }
+        val runDir = File(context.filesDir, AppConfig.ROOT_RUNTIME_DIR).apply { mkdirs() }
         val pidFile = File(runDir, "tun2socks.pid").absolutePath
         val logFile = File(runDir, "tun2socks.log").absolutePath
-        val cfgFile = File(runDir, "tun2socks.yml")
+        val cfgFile = File(runDir, "tun2socks.yml").absolutePath
         val oomGuardPid = File(runDir, "oomguard.pid").absolutePath
         val ipv6 = MmkvManager.decodeSettingsBool(AppConfig.PREF_IPV6_ENABLED)
         val lanShare = forceLanShare || MmkvManager.decodeSettingsBool(AppConfig.PREF_ROOT_LAN_SHARING)
         val corePid = Process.myPid()
-
-        val config = buildHevConfig(socksUsername, socksPassword, port, ipv6)
-        if (!writeHevConfig(cfgFile, config)) {
-            return null
-        }
-        val cfgPath = cfgFile.absolutePath
 
         // Per-app proxy/bypass (mirrors what VpnService does via allowed/disallowed apps).
         val perAppEnabled = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY)
@@ -152,9 +141,15 @@ object RootProxyManager {
             appendLine("echo \$! > '$oomGuardPid'")
             // tun device node
             appendLine("if [ ! -e /dev/net/tun ]; then mkdir -p /dev/net; mknod /dev/net/tun c 10 200; chmod 666 /dev/net/tun; fi")
-            // The HEV config is written separately by the app process. Never place credentials
-            // in this root shell script, even when YAML quoting would otherwise be valid.
-            appendLine("nohup \"\$BIN\" '$cfgPath' >'$logFile' 2>&1 &")
+            // hev-socks5-tunnel config: it creates the tun ($TUN) itself and forwards it to the
+            // in-process core's SOCKS inbound on loopback. MTU comes from the existing VPN MTU
+            // setting. No fwmark on hev's sockets: its only upstream connection is to 127.0.0.1
+            // (loopback, already RETURNed by the 127.0.0.0/8 bypass) and the core's real outbound
+            // runs as the app uid (RETURNed by the uid-owner rule), so traffic can't loop.
+            appendLine("cat > '$cfgFile' <<'HEVCFG'")
+            append(buildHevConfig(socksUsername = socksUsername, socksPassword = socksPassword, socksPort = port, ipv6 = ipv6))
+            appendLine("HEVCFG")
+            appendLine("nohup \"\$BIN\" '$cfgFile' >'$logFile' 2>&1 &")
             appendLine("T2S_PID=\$!")
             appendLine("echo \$T2S_PID > '$pidFile'")
             appendLine("echo ${AppConfig.ROOT_OOM_SCORE} > /proc/\$T2S_PID/oom_score_adj 2>/dev/null || true")
@@ -172,12 +167,6 @@ object RootProxyManager {
             // mark the device's own packets into the tun (Root mode only)
             if (captureDeviceTraffic) {
                 append(buildMangleMarking("iptables", appUid, perAppEnabled, bypassApps, selectedUids))
-                // DNS DNAT: rewrite DNS queries destined for LAN/private resolvers to a
-                // public IP so the core's routing engine can resolve them via the configured
-                // remote DNS (dns-out) instead of falling through to a geoip:private → direct
-                // rule that sends the query back to the LAN resolver (ISP DNS poisoning /
-                // CDN mis-resolution). Mirrors the tethered-client DNAT in buildLanShareSetup.
-                append(buildDnsDnat("iptables"))
             }
             // optionally route hotspot / USB-tethered clients through the tun too
             if (lanShare) {
@@ -192,7 +181,6 @@ object RootProxyManager {
                     appendLine("ip -6 route replace default dev $TUN table $TABLE 2>/dev/null || true")
                     appendLine("ip -6 rule add fwmark $MARK table $TABLE priority $PRIORITY 2>/dev/null || true")
                     append(buildMangleMarking("ip6tables", appUid, perAppEnabled, bypassApps, selectedUids))
-                    append(buildDnsDnat("ip6tables"))
                 } else {
                     // v6 disabled: blackhole native v6 egress for the captured apps so they
                     // fall back to v4-through-proxy, matching what a v4-only VpnService does.
@@ -224,30 +212,10 @@ object RootProxyManager {
             appendLine("  address: '${AppConfig.LOOPBACK}'")
             appendLine("  udp: 'udp'")
             if (socksUsername != null && socksPassword != null) {
-                appendLine("  username: ${socksUsername.toSingleQuotedYamlScalar()}")
-                appendLine("  password: ${socksPassword.toSingleQuotedYamlScalar()}")
+                appendLine("  username: '$socksUsername'")
+                appendLine("  password: '$socksPassword'")
             }
             appendLine("  tcp-fastopen: true")
-        }
-    }
-
-    private fun writeHevConfig(file: File, config: String): Boolean {
-        val atomicFile = AtomicFile(file)
-        val output = try {
-            atomicFile.startWrite()
-        } catch (e: Exception) {
-            LogUtil.e(AppConfig.TAG, "RootProxyManager: failed to open HEV config at ${file.absolutePath}", e)
-            return false
-        }
-
-        return try {
-            output.write(config.toByteArray(Charsets.UTF_8))
-            atomicFile.finishWrite(output)
-            true
-        } catch (e: Exception) {
-            atomicFile.failWrite(output)
-            LogUtil.e(AppConfig.TAG, "RootProxyManager: failed to write HEV config at ${file.absolutePath}", e)
-            false
         }
     }
 
@@ -305,40 +273,6 @@ object RootProxyManager {
             }
             appendLine("$cmd -t mangle -D OUTPUT -j $CHAIN 2>/dev/null || true")
             appendLine("$cmd -t mangle -A OUTPUT -j $CHAIN")
-        }
-    }
-
-    /**
-     * DNAT DNS queries (port 53) destined for LAN/private resolvers to a public IP.
-     *
-     * In root mode, DNS is marked into the tun and reaches the core's SOCKS inbound as a
-     * UDP relay to the original resolver address (e.g. 192.168.1.1:53). The core's routing
-     * rule `{inboundTag=socks, port=53, outboundTag=dns-out}` should intercept it, but when
-     * the resolver is a private IP the query also matches a user's `geoip:private → direct`
-     * routing rule, which sends it straight to the LAN resolver (ISP DNS) — causing DNS
-     * poisoning, CDN mis-resolution, and the "some sites work, some don't" symptom.
-     *
-     * Rewriting the destination to a public IP (the configured remote DNS or 1.1.1.1
-     * fallback) prevents `geoip:private` from matching, so `dns-out` can resolve via the
-     * configured remote DNS servers (e.g. Cloudflare DoH) through the proxy.
-     *
-     * Uses the same resolver-selection logic as [buildLanShareSetup].
-     */
-    private fun buildDnsDnat(cmd: String): String {
-        val dnsChain = AppConfig.ROOT_DNS_OUT_CHAIN
-        val dns = SettingsManager.getRemoteDnsServers()
-            .firstOrNull { Utils.isPureIpAddress(it) && !it.contains(":") }
-            ?: AppConfig.ROOT_LAN_DNS
-        val lanCidrs = if (cmd == "ip6tables") bypassCidrsV6 else bypassCidrs
-        return buildString {
-            appendLine("$cmd -t nat -N $dnsChain 2>/dev/null || true")
-            appendLine("$cmd -t nat -F $dnsChain")
-            lanCidrs.forEach {
-                appendLine("$cmd -t nat -A $dnsChain -d $it -p udp --dport 53 -j DNAT --to $dns")
-                appendLine("$cmd -t nat -A $dnsChain -d $it -p tcp --dport 53 -j DNAT --to $dns")
-            }
-            appendLine("$cmd -t nat -D OUTPUT -j $dnsChain 2>/dev/null || true")
-            appendLine("$cmd -t nat -A OUTPUT -j $dnsChain")
         }
     }
 
@@ -518,10 +452,6 @@ object RootProxyManager {
             appendLine("iptables -t nat -D PREROUTING -j ${AppConfig.ROOT_DNS_CHAIN} 2>/dev/null || true")
             appendLine("iptables -t nat -F ${AppConfig.ROOT_DNS_CHAIN} 2>/dev/null || true")
             appendLine("iptables -t nat -X ${AppConfig.ROOT_DNS_CHAIN} 2>/dev/null || true")
-            // device DNS DNAT chain (root mode)
-            appendLine("iptables -t nat -D OUTPUT -j ${AppConfig.ROOT_DNS_OUT_CHAIN} 2>/dev/null || true")
-            appendLine("iptables -t nat -F ${AppConfig.ROOT_DNS_OUT_CHAIN} 2>/dev/null || true")
-            appendLine("iptables -t nat -X ${AppConfig.ROOT_DNS_OUT_CHAIN} 2>/dev/null || true")
             // IPv6 LAN-sharing chains (forward accept/reject + forwarded-client marking)
             appendLine("ip6tables -D FORWARD -j ${AppConfig.ROOT_V6_FWD_CHAIN} 2>/dev/null || true")
             appendLine("ip6tables -F ${AppConfig.ROOT_V6_FWD_CHAIN} 2>/dev/null || true")
@@ -543,5 +473,3 @@ object RootProxyManager {
         }
     }
 }
-
-internal fun String.toSingleQuotedYamlScalar(): String = "'${replace("'", "''")}'"

@@ -12,7 +12,6 @@ enum class Language(val code: String, val languageTag: String) {
     RUSSIAN("ru", "ru"),
     PERSIAN("fa", "fa"),
     ARABIC("ar", "ar"),
-    AZERBAIJANI("az", "az"),
     BANGLA("bn", "bn"),
     BAKHTIARI("bqi-rIR", "bqi-IR");
 
@@ -49,7 +48,6 @@ enum class Language(val code: String, val languageTag: String) {
                 "ru" -> RUSSIAN
                 "fa" -> PERSIAN
                 "ar" -> ARABIC
-                "az" -> AZERBAIJANI
                 "bn" -> BANGLA
                 "bqi" -> BAKHTIARI
                 else -> AUTO

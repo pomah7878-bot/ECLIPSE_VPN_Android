@@ -1,25 +1,22 @@
 package com.v2ray.ang.enums
 
-import androidx.annotation.StringRes
-import com.v2ray.ang.R
-
 /**
  * Enum defining different notification channels.
  * Each channel has a unique channelId, notificationId, and display name.
  */
 enum class NotificationChannelType(
     val channelId: String,
-    @StringRes val channelNameRes: Int,
+    val channelName: String,
     val notificationId: Int
 ) {
     SUBSCRIPTION_UPDATE(
         channelId = "subscription_update_channel",
-        channelNameRes = R.string.notification_channel_subscription_updates,
+        channelName = "Subscription Update Service",
         notificationId = 13
     ),
     CORE_TEST(
         channelId = "core_test_channel",
-        channelNameRes = R.string.notification_channel_connection_checks,
+        channelName = "Core Test Service",
         notificationId = 12
     )
 }
