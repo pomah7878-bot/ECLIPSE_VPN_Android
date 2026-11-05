@@ -37,8 +37,8 @@ android {
         applicationId = "com.eclipse.unlimited"
         minSdk = 24
         targetSdk = 37
-        versionCode = 754
-        versionName = "1.22.2"
+        versionCode = 755
+        versionName = "2.8"
 
         buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
         buildConfigField("String", "APP_CLIENT_SECRET", "\"$appClientSecret\"")

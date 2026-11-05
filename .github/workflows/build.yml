@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+env:
+  # Pin the binary core explicitly so the APK uses a reviewed,
+  # published AndroidLibXrayLite build rather than an implied submodule tag.
+  XRAY_LITE_TAG: 'v26.10.31'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -67,19 +72,11 @@ jobs:
       run: |
         cp -r ${{ github.workspace }}/libs ${{ github.workspace }}/V2rayNG/app
 
-    - name: Fetch AndroidLibXrayLite tag
-      run: |
-        pushd AndroidLibXrayLite
-        CURRENT_TAG=$(git describe --tags --abbrev=0)
-        echo "Current tag in this repo: $CURRENT_TAG"
-        echo "CURRENT_TAG=$CURRENT_TAG" >> $GITHUB_ENV
-        popd
-
     - name: Download libv2ray
       uses: robinraju/release-downloader@v1.13
       with:
         repository: '2dust/AndroidLibXrayLite'
-        tag: ${{ env.CURRENT_TAG }}
+        tag: ${{ env.XRAY_LITE_TAG }}
         fileName: 'libv2ray.aar'
         out-file-path: V2rayNG/app/libs/
 
@@ -88,6 +85,15 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '21'
+
+    - name: Run unit tests
+      env:
+        SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        APP_CLIENT_SECRET: ${{ secrets.APP_CLIENT_SECRET }}
+      run: |
+        cd ${{ github.workspace }}/V2rayNG
+        chmod 755 gradlew
+        ./gradlew testPlaystoreReleaseUnitTest
 
     - name: Decode Keystore
       uses: timheuer/base64-to-file@v2.0.0

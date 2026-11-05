@@ -41,8 +41,20 @@ open class FmtBase {
      * @return a map of query parameters
      */
     fun getQueryParam(uri: URI): Map<String, String> {
-        return uri.rawQuery.split("&")
-            .associate { it.split("=").let { (k, v) -> k to Utils.decodeURIComponent(v) } }
+        return uri.rawQuery.orEmpty()
+            .split("&")
+            .mapNotNull { parameter ->
+                if (parameter.isEmpty()) return@mapNotNull null
+
+                // Split only at the first '='. Some subscription generators emit
+                // padded Reality public keys without percent-encoding them; using
+                // split("=") here either truncated pbk or rejected the whole URI.
+                val separator = parameter.indexOf('=')
+                val rawKey = if (separator >= 0) parameter.substring(0, separator) else parameter
+                val rawValue = if (separator >= 0) parameter.substring(separator + 1) else ""
+                Utils.decodeURIComponent(rawKey) to Utils.decodeURIComponent(rawValue)
+            }
+            .toMap()
     }
 
     /**
