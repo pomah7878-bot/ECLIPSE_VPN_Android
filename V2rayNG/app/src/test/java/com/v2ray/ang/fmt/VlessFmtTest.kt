@@ -68,7 +68,8 @@ class VlessFmtTest {
         val profile = VlessFmt.parse(original)
 
         assertNotNull(profile)
-        val restored = VlessFmt.parse(VlessFmt.toUri(profile!!))
+        val exported = profile!!.let { it.configType.protocolScheme + VlessFmt.toUri(it) }
+        val restored = VlessFmt.parse(exported)
 
         assertNotNull(restored)
         assertEquals(profile.publicKey, restored?.publicKey)
