@@ -29,6 +29,16 @@
 - **Аккаунт и поддержка.** Подписка, баланс, история операций и обращения в поддержку доступны в приложении.
 - **Светлая и тёмная темы.** Внешний вид можно выбрать вручную или привязать к настройкам телефона.
 
+## Экраны приложения
+
+| Главный экран | VPN подключён | Режимы маршрутизации |
+|:---:|:---:|:---:|
+| <img src="https://eclipse.unlimited.bot.nu/static/app-preview/home.jpg" alt="Главный экран ECLIPSE Unlimited" width="240"> | <img src="https://eclipse.unlimited.bot.nu/static/app-preview/connected.jpg" alt="Подключённый VPN в ECLIPSE Unlimited" width="240"> | <img src="https://eclipse.unlimited.bot.nu/static/app-preview/modes.jpg" alt="Выбор режима маршрутизации" width="240"> |
+
+| Светлая тема | Вход в аккаунт |
+|:---:|:---:|
+| <img src="https://eclipse.unlimited.bot.nu/static/app-preview/light.jpg" alt="Светлая тема ECLIPSE Unlimited" width="240"> | <img src="https://eclipse.unlimited.bot.nu/static/app-preview/login.jpg" alt="Экран входа в ECLIPSE Unlimited" width="240"> |
+
 ## Установка
 
 1. Скачайте APK с официальной страницы или из нужного релиза на GitHub.
