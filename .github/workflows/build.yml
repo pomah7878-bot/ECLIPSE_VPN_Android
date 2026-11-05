@@ -93,7 +93,7 @@ jobs:
       run: |
         cd ${{ github.workspace }}/V2rayNG
         chmod 755 gradlew
-        ./gradlew testPlaystoreReleaseUnitTest --tests "com.v2ray.ang.fmt.VlessFmtTest"
+        ./gradlew testPlaystoreDebugUnitTest --tests "com.v2ray.ang.fmt.VlessFmtTest"
 
     - name: Decode Keystore
       uses: timheuer/base64-to-file@v2.0.0
