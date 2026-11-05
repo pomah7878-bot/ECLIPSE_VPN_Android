@@ -1,90 +1,76 @@
-# v2rayNG
+# ECLIPSE Unlimited VPN для Android
 
-A V2Ray client for Android, support [Xray core](https://github.com/XTLS/Xray-core) and [v2fly core](https://github.com/v2fly/v2ray-core)
+**VPN одной кнопкой: автоматический выбор сервера, стабильное соединение и управление подпиской внутри приложения.**
 
-[![API](https://img.shields.io/badge/API-24%2B-yellow.svg?style=flat)](https://developer.android.com/about/versions/lollipop)
-[![Kotlin Version](https://img.shields.io/badge/Kotlin-2.4.0-blue.svg)](https://kotlinlang.org)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/2dust/v2rayNG)](https://github.com/2dust/v2rayNG/commits/master)
-[![CodeFactor](https://www.codefactor.io/repository/github/2dust/v2rayng/badge)](https://www.codefactor.io/repository/github/2dust/v2rayng)
-[![GitHub Releases](https://img.shields.io/github/downloads/2dust/v2rayNG/latest/total?logo=github)](https://github.com/2dust/v2rayNG/releases)
-[![Chat on Telegram](https://img.shields.io/badge/Chat%20on-Telegram-brightgreen.svg)](https://t.me/v2rayn)
+[![Актуальная версия](https://img.shields.io/badge/version-2.7.1-675cff)](CHANGELOG.md)
+[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84)](https://developer.android.com/about/versions/oreo)
+[![Релизы](https://img.shields.io/badge/releases-download-blue)](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases)
 
----
+**[Скачать приложение](https://eclipse.unlimited.bot.nu/app) · [История изменений](CHANGELOG.md) · [Все релизы](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases)**
 
-## Download / 下载
+## Скачать актуальную версию
 
-Download the latest release here:
+**ECLIPSE Unlimited 2.7.1** · `versionCode 14` · Android 8.0 или новее.
 
-在这里下载最新版本：
+Официальная страница всегда предлагает последнюю подписанную версию:
 
-[https://github.com/2dust/v2rayNG/releases](https://github.com/2dust/v2rayNG/releases)
+**[Скачать Eclipse VPN.apk](https://eclipse.unlimited.bot.nu/client-update/client.apk)**
 
-> [!TIP]
-> v2rayNG is the mobile version. For the desktop version, please visit the v2rayN \
-> v2rayNG 是手机版，电脑版请访问 v2rayN
->
-> https://github.com/2dust/v2rayN
+Для работы приложения нужен аккаунт ECLIPSE с действующей подпиской. Войти можно через Telegram или другой способ, доступный на экране входа.
 
----
+## Возможности
 
-### Geoip and Geosite
+- **Подключение одной кнопкой.** Приложение проверяет доступные серверы и выбирает подходящий.
+- **VLESS с TLS и REALITY.** Параметры подключения автоматически загружаются из подписки.
+- **Автоматическое восстановление.** При отказе текущего сервера приложение пробует следующий.
+- **Гибкая маршрутизация.** Можно выбрать, какой трафик направлять через VPN, а какой — напрямую.
+- **Управление из шторки.** Отдельная кнопка позволяет включать и выключать VPN без открытия приложения.
+- **Защита входа.** По желанию можно использовать код телефона, отпечаток или распознавание лица.
+- **Аккаунт и поддержка.** Подписка, баланс, история операций и обращения в поддержку доступны в приложении.
+- **Светлая и тёмная темы.** Внешний вид можно выбрать вручную или привязать к настройкам телефона.
 
-- geoip.dat and geosite.dat files are in `Android/data/com.v2ray.ang/files/assets` (path may differ on some Android device)
-- download feature will get enhanced version in this [repo](https://github.com/Loyalsoldier/v2ray-rules-dat) (note: it needs a working proxy)
-- latest official [domain list](https://github.com/Loyalsoldier/v2ray-rules-dat) and [ip list](https://github.com/Loyalsoldier/geoip) can be imported manually
-- possible to use a third-party dat file in the same folder, like [h2y](https://guide.v2fly.org/routing/sitedata.html#%E5%A4%96%E7%BD%AE%E7%9A%84%E5%9F%9F%E5%90%8D%E6%96%87%E4%BB%B6)
+## Установка
 
-More in our [wiki](https://github.com/2dust/v2rayNG/wiki)
+1. Скачайте APK с официальной страницы или из нужного релиза на GitHub.
+2. Откройте файл. Если Android запросит разрешение, разрешите установку из использованного источника.
+3. Откройте ECLIPSE Unlimited, войдите в аккаунт и подтвердите системный запрос на создание VPN-соединения.
 
-### Geoip 与 Geosite
+При обновлении устанавливайте новую версию поверх уже установленной, не удаляя приложение. Пакет актуального клиента — `com.eclipseunlimited.app`. APK с другой подписью не должен использоваться как обновление официальной версии.
 
-- geoip.dat 和 geosite.dat 文件位于 `Android/data/com.v2ray.ang/files/assets`（部分设备路径可能不同）
-- 下载功能将获取该 [仓库](https://github.com/Loyalsoldier/v2ray-rules-dat) 中的增强版本（注意：此功能需要一个可用的代理）
-- 最新官方 [域名列表](https://github.com/Loyalsoldier/v2ray-rules-dat) 和 [IP 列表](https://github.com/Loyalsoldier/geoip) 可手动导入
-- 也可在同一文件夹中使用第三方 dat 文件，例如 [h2y](https://guide.v2fly.org/routing/sitedata.html#%E5%A4%96%E7%BD%AE%E7%9A%84%E5%9F%9F%E5%90%8D%E6%96%87%E4%BB%B6)
+## Обновления
 
-更多内容请见我们的 [wiki](https://github.com/2dust/v2rayNG/wiki)
+Сайтовая версия приложения проверяет наличие обновлений автоматически. Перед установкой можно сравнить версию и SHA-256 файла с данными официального обновления.
 
----
+Скачивайте APK только с официального сайта или из этого репозитория. Не передавайте другим людям ссылку подписки: она содержит параметры вашего доступа.
 
-## Development guide / 开发指南
+## История версий
 
-### Note
+| Версия | Дата | Основное изменение |
+|---|---|---|
+| **[2.7.1](CHANGELOG.md#271--2026-11-05)** | 5 ноября 2026 | Исправлены проверки серверов с доменными адресами; подтверждена работа VLESS REALITY |
+| **[2.7](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases/tag/2.7)** | 4 ноября 2026 | Более точный выбор рабочего сервера |
+| **[2.6](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases/tag/2.6)** | 4 ноября 2026 | Вход из Telegram-бота с сохранением подписки и баланса |
+| **[2.5](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases/tag/2.5)** | 4 ноября 2026 | Темы оформления и понятные профили маршрутизации |
+| **[2.4](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases/tag/2.4)** | 4 ноября 2026 | Биометрическая защита и кнопка VPN в шторке |
+| **[2.1](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases/tag/2.1)** | 4 ноября 2026 | Подключение по сохранённым серверам при недоступности сайта |
+| **[2.0](https://github.com/pomah7878-bot/ECLIPSE_VPN_Android/releases/tag/2.0)** | 4 ноября 2026 | Новое нативное приложение с аккаунтом и автоматическим выбором сервера |
 
-- Android project under the V2rayNG folder can be compiled directly in Android Studio, or using the Gradle wrapper. But the v2ray core inside the aar is (probably) outdated.
-- The aar can be compiled from the Golang project [AndroidLibV2rayLite](https://github.com/2dust/AndroidLibV2rayLite) or [AndroidLibXrayLite](https://github.com/2dust/AndroidLibXrayLite). For a quick start, read the guides for [Go Mobile](https://github.com/golang/go/wiki/Mobile) and [Makefiles for Go Developers](https://tutorialedge.net/golang/makefiles-for-go-developers/).
-- v2rayNG can run on Android Emulators. For WSA, VPN permission needs to be granted via `appops set [package name] ACTIVATE_VPN allow`.
+Полный список изменений находится в [CHANGELOG.md](CHANGELOG.md). Релизы 1.x сохранены как архив прежнего клиента.
 
-### 提示
+## О репозитории и исходном коде
 
-- V2rayNG 文件夹下的 Android 项目可直接在 Android Studio 中编译，或使用 Gradle wrapper 编译。但 aar 内置的 v2ray core（可能）已过时。
-- aar 可由 Golang 项目 [AndroidLibV2rayLite](https://github.com/2dust/AndroidLibV2rayLite) 或 [AndroidLibXrayLite](https://github.com/2dust/AndroidLibXrayLite) 编译而成。快速入门可参考 [Go Mobile](https://github.com/golang/go/wiki/Mobile) 指南和 [Makefiles for Go Developers](https://tutorialedge.net/golang/makefiles-for-go-developers/)。
-- v2rayNG 可在 Android 模拟器上运行。对于 WSA，需要通过 `appops set [package name] ACTIVATE_VPN allow` 授予 VPN 权限。
+Этот репозиторий служит публичным каталогом Android-релизов ECLIPSE Unlimited.
 
----
+Каталог `V2rayNG` и связанные с ним файлы относятся к прежнему клиенту 1.x на базе открытого проекта [v2rayNG](https://github.com/2dust/v2rayNG). Они сохранены для истории и не описывают архитектуру актуального нативного приложения линейки 2.x.
 
+APK линейки 2.x предназначены для пакета `com.eclipseunlimited.app`. Их нельзя заменять сборками прежнего клиента с пакетом `com.eclipse.unlimited`: это разные приложения.
 
-## GPG Verification / GPG 签名校验
+Исходный код v2rayNG остаётся под исходной лицензией и с сохранением уведомлений правообладателей. Актуальные пользовательские сборки публикуются только после тестирования на реальном устройстве.
 
-Release files are signed with GPG to verify authenticity and integrity, helping prevent mirror, ISP, or CDN hijacking.
+## Поддержка
 
-发布文件已使用 GPG 签名，可用于校验文件真实性与完整性，预防镜像站、运营商或 CDN 劫持。
+- Официальная страница: [eclipse.unlimited.bot.nu/app](https://eclipse.unlimited.bot.nu/app)
+- Telegram-бот сервиса: [@vless_keysvpn_bot](https://t.me/vless_keysvpn_bot)
+- Новости: [@eclipse_unlimited_news](https://t.me/eclipse_unlimited_news)
 
-### Fingerprint / 公钥指纹
-
-```text
-7694 5E9F 3E9A 168F 8070 F195 805D 661C
-134D FAF6 8903 C199 463C 31E5 AE90 3AE0
-```
-
----
-
-## Community / 社区
-
-Telegram Group / Telegram 群组：
-
-[https://t.me/v2rayN](https://t.me/v2rayN)
-
-Telegram Channel / Telegram 频道：
-
-[https://t.me/github_2dust](https://t.me/github_2dust)
+При обращении о проблеме подключения укажите версию приложения, модель устройства, версию Android и тип сети — Wi-Fi или мобильный интернет. Пароли, токены и ссылку подписки прилагать не нужно.
